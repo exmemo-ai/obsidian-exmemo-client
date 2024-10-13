@@ -1,6 +1,6 @@
 {
 	"id": "obsidian-exmemo-client",
-	"name": "obsidian-exmemo-client",
+	"name": "ExMemo Client",
 	"version": "1.0.0",
 	"minAppVersion": "0.1.0",
 	"description": "A plugin for creating and managing files in Obsidian.",
