@@ -3,7 +3,7 @@
 export default {
     "serverAddress": "服务器地址",
     "service_desc1": "ExMemo 服务可以在本地搭建，以支持私有存储。请查看 ",
-    "service_desc2": " 以获取帮助。",
+    "service_desc2": " 了解搭建方法。",
     "username": "用户名",
     "username_desc": "请先在搭建好的服务器中注册用户名/密码。",
     "password": "密码",

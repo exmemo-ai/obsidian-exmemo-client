@@ -20,7 +20,7 @@ ExMemo 是一个个人知识管理项目，旨在集中记录和管理各种信�
 
 ### 3.1 安装 ExMemo 服务端
 
-安装方法见：[[https://github.com/exmemo-ai/exmemo]]
+安装方法见：https://github.com/exmemo-ai/exmemo
 
 ### 3.2 安装 obsidian-exmemo-client
 
@@ -53,7 +53,7 @@ npm run build # build to main.js
 
 ### 3.3 设置
 
-![](support/attachments_2024/Pasted%20image%2020241017162539.png)
+![](./images/img3.png)
 
 - 服务器地址格式：http://IP:PORT，使用前请先搭建 ExMemo 后台服务。
 - 第一次使用前需要在 ExMemo 前端注册用户。

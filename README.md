@@ -1,3 +1,5 @@
+English | [中文简体](./README_cn.md)
+
 ## 1 Introduction
 
 ![](./images/img1.png)
@@ -20,7 +22,7 @@ The system consists of a database, backend, and multiple front-ends. Distributed
 
 ### 3.1 Installing the ExMemo Server
 
-Installation instructions can be found at: [[https://github.com/exmemo-ai/exmemo]]
+Installation instructions can be found at: https://github.com/exmemo-ai/exmemo
 
 ### 3.2 Installing obsidian-exmemo-client
 
@@ -53,7 +55,7 @@ You can also download the latest version of the plugin directly from the Release
 
 ### 3.3 Settings
 
-![](support/attachments_2024/Pasted%20image%2020241017162539.png)
+![](./images/img3.png)
 
 - Server address format: http://IP:PORT. Please set up the ExMemo backend service before use.
 - You need to register a user on the ExMemo frontend before using it for the first time.
