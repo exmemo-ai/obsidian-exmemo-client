@@ -15,28 +15,22 @@ export class ConfirmModal extends Modal {
     onOpen() {
         const { contentEl } = this;
         contentEl.createEl("h2", { text: t('are_you_sure') });
-        const paragraph = contentEl.createEl("p", { text: this.info });
+        contentEl.createEl("p", { text: this.info, cls: "info-paragraph" });
 
         const buttonContainer = contentEl.createDiv({ cls: "confirm-modal-buttons" });
-        const yesButton = buttonContainer.createEl("button", { text: t('yes') });
+        const yesButton = buttonContainer.createEl("button", { text: t('yes'), cls: "yes-button" });
         yesButton.onclick = () => {
             this.result = true;
             this.resolvePromise(true);
             this.close();
         };
 
-        const noButton = buttonContainer.createEl("button", { text: t('no') });
+        const noButton = buttonContainer.createEl("button", { text: t('no'), cls: "no-button" });
         noButton.onclick = () => {
             this.result = false;
             this.resolvePromise(false);
             this.close();
         };
-
-        buttonContainer.style.display = "flex";
-        buttonContainer.style.justifyContent = "space-around";
-        buttonContainer.style.marginTop = "20px";
-        paragraph.style.whiteSpace = "pre-line";
-        yesButton.style.marginRight = "10px";
     }
 
     onClose() {

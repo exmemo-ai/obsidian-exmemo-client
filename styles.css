@@ -6,3 +6,21 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.notice-title {
+    font-weight: bold;
+}
+
+.confirm-modal-buttons {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 20px;
+}
+
+.info-paragraph {
+    white-space: pre-line;
+}
+
+.yes-button {
+    margin-right: 10px;
+}

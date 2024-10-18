@@ -17,13 +17,12 @@ export class ExMemoNotice {
 		let frag: DocumentFragment | string = message;
 		if (opts.button && opts.button.text && opts.button.callback) {
 			frag = document.createDocumentFragment();
-			let head = frag.createEl("p", { text: t("sync") });
-			head.style.fontWeight = "bold";
+			frag.createEl("p", { text: t("sync"), cls: "notice-title" });
 			let content = frag.createEl("p", {});
 			content.innerText = message;
 			let actions = frag.createEl("div", { cls: "notice-actions" });
 			let btn = document.createElement("button");
-			btn.innerHTML = opts.button.text;
+			btn.textContent = opts.button.text;
 			btn.addEventListener("click", (e) => {
 				if (opts.button.stay_open) {
 					e.preventDefault();
