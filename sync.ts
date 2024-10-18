@@ -37,10 +37,6 @@ export class Sync {
         let uploadedList: TFile[] = [];
         let ret = true;
 
-        if (DEBUG) {
-            console.log('groupCount:', groupCount, 'groupSize:', groupSize, 'uploadList:', uploadList.length)
-        }
-
         this.plugin.showNotice('sync',
             t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
             { 'button': this.interruptButton });
@@ -79,9 +75,6 @@ export class Sync {
                     return response.json();
                 })
                 .then(data => {
-                    if (DEBUG) {
-                        console.log(data);
-                    }
                     if (data.list) {
                         for (const file of group) {
                             if (data.list.includes(file.path)) {
@@ -102,9 +95,6 @@ export class Sync {
                     this.plugin.parseError(err);
                     ret = false;
                 });
-        }
-        if (DEBUG) {
-            console.log('uploadedList' + uploadedList.length)
         }
         return [ret, uploadedList];
     }
@@ -168,10 +158,6 @@ export class Sync {
             ret_array.push(new_rule);
         }
         let ret_string = ret_array.join(',');
-        if (DEBUG) {
-            console.log('before regular_rules', rule_str)
-            console.log('after regular_rules ', ret_string)
-        }
         return ret_string
     }
 
@@ -195,9 +181,6 @@ export class Sync {
                 return response.json();
             })
             .then(async (data): Promise<void> => {
-                if (DEBUG) {
-                    console.log('check_update:', data)
-                }
                 if (data.update == true) {
                     ret = true;
                 }
@@ -247,9 +230,6 @@ export class Sync {
                 return response.json();
             })
             .then(async (data): Promise<void> => {
-                if (DEBUG) {
-                    console.log('syncAll data:', data)
-                }
                 this.interrupt = false;
                 let showinfo = ""
                 let upload_list = data.upload_list;
@@ -301,9 +281,6 @@ export class Sync {
                     this.settings.lastSyncTime = new Date().getTime() + 5000; // 5 sec delay
                     this.plugin.saveSettings();
                 }
-                if (DEBUG) {
-                    console.log('syncAll finished, download_success:', download_success)
-                }
             })
             .catch(err => {
                 this.plugin.parseError(err, auto_login == false);
@@ -333,9 +310,6 @@ export class Sync {
                     break;
                 }
                 try {
-                    if (DEBUG) {
-                        console.log('now remove file', dic['addr'])
-                    }
                     this.app.vault.trash(this.app.vault.getAbstractFileByPath(dic['addr']));
                 } catch (error) {
                     console.error(error);
@@ -370,9 +344,6 @@ export class Sync {
     }
 
     async downloadFile(filename: string, idx: string) {
-        if (DEBUG) {
-            console.log('downloadFile', filename, idx)
-        }
         let ret = true;
         const url = new URL(this.settings.url + '/api/entry/data/' + idx + '/' + 'download/');
         const requestOptions = {
@@ -406,7 +377,6 @@ export class Sync {
                 this.plugin.parseError(err);
                 ret = false;
             });
-        console.log('now download file', ret)
         return ret
     }
 
@@ -443,9 +413,6 @@ export class LocalInfo {
         this.fileInfoList = {};
         this.jsonPath = path.join(this.app.vault.adapter.getBasePath(), this.plugin.manifest.dir,
             this.app.vault.getName() + '_file_info.json');
-        if (DEBUG) {
-            console.log('LocalInfo constructor:', this.jsonPath)
-        }
         this.load();
     }
 
@@ -484,9 +451,6 @@ export class LocalInfo {
                 count += 1;
             }
         }
-        if (DEBUG) {
-            console.log('update count:', count, 'total:', Object.keys(this.fileInfoList).length)
-        }
         this.plugin.hideNotice('temp')
         if (count > 0) {
             this.save();
@@ -498,9 +462,6 @@ export class LocalInfo {
     save() {
         const fileInfoStr = JSON.stringify(this.fileInfoList, null, 2);
         const absolutePath = path.resolve(this.jsonPath);
-        if (DEBUG) {
-            console.log('Saving to:', absolutePath);
-        }
         fs.writeFileSync(this.jsonPath, fileInfoStr);
         this.plugin.settings.lastIndexTime = new Date().getTime();
         this.plugin.saveSettings();
@@ -510,9 +471,6 @@ export class LocalInfo {
         if (fs.existsSync(this.jsonPath)) {
             const fileInfoStr = fs.readFileSync(this.jsonPath, 'utf8');
             this.fileInfoList = JSON.parse(fileInfoStr);
-        }
-        if (DEBUG) {
-            console.log('load file info:', Object.keys(this.fileInfoList).length)
         }
         await this.update();
     }
