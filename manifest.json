@@ -1,7 +1,7 @@
 {
 	"id": "exmemo-client",
 	"name": "ExMemo Client",
-	"version": "v1.0.0",
+	"version": "1.0.0",
 	"minAppVersion": "0.1.0",
 	"description": "A client for the ExMemo service, used to search, sync, and organize data from the server.",
 	"author": "Yan.Xie",
