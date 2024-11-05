@@ -1,5 +1,5 @@
 import { Notice } from 'obsidian';
-import { t } from "./lang/helpers"
+import { t } from "src/lang/helpers"
 
 export class ExMemoNotice {
 	active: Record<string, Notice>;

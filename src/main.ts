@@ -1,9 +1,9 @@
 import { Editor, MarkdownView, Plugin } from 'obsidian';
-import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'settings';
-import { Sync } from 'sync';
-import { SearchModal } from 'search';
-import { ExMemoNotice } from 'notice';
-import { t } from "./lang/helpers"
+import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
+import { Sync } from 'src/sync';
+import { SearchModal } from 'src/search';
+import { ExMemoNotice } from 'src/notice';
+import { t } from "src/lang/helpers"
 
 export default class ExMemoPlugin extends Plugin {
 	settings: ExMemoSettings;
@@ -17,21 +17,21 @@ export default class ExMemoPlugin extends Plugin {
 		this.sync = new Sync(this, this.app, this.settings);
 
 		this.addCommand({
-			id: 'exmemo-search',
+			id: 'search',
 			name: t('search'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				new SearchModal(this.app, this).open();
 			}
 		});
 		this.addCommand({
-			id: 'exmemo-upload',
+			id: 'upload',
 			name: t('syncCurrentFile'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				this.sync.syncCurrentMd(this);
 			}
 		});
 		this.addCommand({
-			id: 'exmemo-sync',
+			id: 'sync',
 			name: t('syncAllFiles'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				this.sync.syncAll();
@@ -39,9 +39,6 @@ export default class ExMemoPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new ExMemoSettingTab(this.app, this));
-
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-		});
 
 		this.resetSyncInterval();
 	}
@@ -121,7 +118,6 @@ export default class ExMemoPlugin extends Plugin {
 
 	resetSyncInterval() {
 		let interval = this.settings.syncInterval;
-		// console.log("resetSyncInterval: : " + interval)
 		if (this.syncIntervalId !== 0) {
 			window.clearInterval(this.syncIntervalId);
 			this.syncIntervalId = 0;

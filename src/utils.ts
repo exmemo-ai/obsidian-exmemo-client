@@ -1,5 +1,5 @@
 import { App, Modal } from 'obsidian';
-import { t } from "./lang/helpers"
+import { t } from "src/lang/helpers"
 
 export class ConfirmModal extends Modal {
     result: boolean | null = null;

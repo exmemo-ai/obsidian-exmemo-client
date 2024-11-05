@@ -1,5 +1,5 @@
 import { PluginSettingTab, Setting, App } from 'obsidian';
-import { t } from "./lang/helpers"
+import { t } from "src/lang/helpers"
 
 export interface ExMemoSettings {
 	myUsername: string;
@@ -36,7 +36,8 @@ export class ExMemoSettingTab extends PluginSettingTab {
 	display(): void {
 		const { containerEl } = this;
 		containerEl.empty();
-		// 
+		//
+		new Setting(containerEl).setName(t('exmemoService')).setHeading();
         const fragment = document.createDocumentFragment();
         const link = document.createElement('a');
         link.href = 'https://github.com/ExMemo/exmemo/';

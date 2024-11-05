@@ -1,6 +1,7 @@
 // 简体中文
 
 export default {
+    "exmemoService": "ExMemo 服务",
     "serverAddress": "服务器地址",
     "service_desc1": "ExMemo 服务可以在本地搭建，以支持私有存储。请查看 ",
     "service_desc2": " 了解搭建方法。",

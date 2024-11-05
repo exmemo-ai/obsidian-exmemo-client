@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { MarkdownView, Notice } from 'obsidian';
-import { t } from "./lang/helpers"
+import { t } from "src/lang/helpers"
 
 export async function searchData(plugin: any, keyword: string, auto_login: boolean = true) {
 
@@ -33,7 +33,6 @@ export async function searchData(plugin: any, keyword: string, auto_login: boole
         })
 
         .then(data => {
-            // console.log(data);
             if (data.results) {
                 const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
                 if (editor) {

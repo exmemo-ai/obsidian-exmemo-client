@@ -1,6 +1,7 @@
 // English
 
 export default {
+  "exmemoService": "ExMemo service",
   "serverAddress": "Server address",
   "service_desc1": "ExMemo service can be deployed locally to support private storage. See ",
   "service_desc2": " for help.",
