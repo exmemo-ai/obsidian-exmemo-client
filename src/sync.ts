@@ -93,34 +93,31 @@ export class Sync {
                 },
                 body: await this.getBody(boundary, group, additionalFields),
             };
-            await requestUrl(requestOptions)
-                .then(response => {
-                    if (response.status !== 200) {
-                        throw response;
-                    }
-                    return response.json;
-                })
-                .then(data => {
-                    if (data.list) {
-                        for (const file of group) {
-                            if (data.list.includes(file.path)) {
-                                uploadedList.push(file);
-                            }
+            try {
+                const response = await requestUrl(requestOptions);
+                if (response.status !== 200) {
+                    throw response;
+                }
+                const data = await response.json;
+                if (data.list) {
+                    for (const file of group) {
+                        if (data.list.includes(file.path)) {
+                            uploadedList.push(file);
                         }
                     }
-                    if (data.emb_status) {
-                        if (data.emb_status == 'failed') {
-                            this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
-                        }
+                }
+                if (data.emb_status) {
+                    if (data.emb_status == 'failed') {
+                        this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
                     }
-                    this.plugin.showNotice('sync',
-                        t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
-                        { 'button': this.interruptButton });
-                })
-                .catch(err => {
-                    this.plugin.parseError(err);
-                    ret = false;
-                });
+                }
+                this.plugin.showNotice('sync',
+                    t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
+                    { 'button': this.interruptButton });
+            } catch (err) {
+                this.plugin.parseError(err);
+                ret = false;
+            }
         }
         return [ret, uploadedList];
     }
@@ -205,22 +202,19 @@ export class Sync {
             },
             body: params.toString()
         };
-        await requestUrl(requestOptions)
-            .then(response => {
-                if (response.status !== 200) {
-                    throw response;
-                }
-                return response.json;
-            })
-            .then(async (data): Promise<void> => {
-                if (data.update == true) {
-                    ret = true;
-                }
-            })
-            .catch(err => {
-                this.plugin.parseError(err, true);
-                this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
-            });
+        try {
+            const response = await requestUrl(requestOptions);
+            if (response.status !== 200) {
+                throw response;
+            }
+            const data = await response.json;
+            if (data.update == true) {
+                ret = true;
+            }
+        } catch (err) {
+            this.plugin.parseError(err, true);
+            this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
+        }
         return ret;
     }
 
@@ -250,7 +244,6 @@ export class Sync {
         params.append('exclude', exclude_str);
         params.append('last_sync_time', this.settings.lastSyncTime.toString());
         params.append('files', JSON.stringify(fileList));
-        //console.log('compare files: ' + fileList.length);
         const requestOptions = {
             url: url.toString(),
             method: 'POST',
@@ -260,76 +253,73 @@ export class Sync {
             },
             body: params.toString()
         };
-        await requestUrl(requestOptions)
-            .then(response => {
-                if (response.status !== 200) {
-                    throw response;
+        try {
+            const response = await requestUrl(requestOptions);
+            if (response.status !== 200) {
+                throw response;
+            }
+            const data = await response.json;
+            this.interrupt = false;
+            let showinfo = ""
+            let upload_list = data.upload_list;
+            let download_list = data.download_list;
+            let download_success = true;
+            if (upload_list && upload_list.length > 0) {
+                showinfo += t('upload') + ': ' + upload_list.length + ' ' + t('files') + '\n';
+            }
+            if (download_list && download_list.length > 0) {
+                showinfo += t('download') + ': ' + download_list.length + ' ' + t('files') + '\n';
+            }
+            if (data.remove_list && data.remove_list.length > 0) {
+                showinfo += t('removeLocal') + ': ' + data.remove_list.length + ' ' + t('files') + '\n';
+            }
+            if (data.cloud_remove_list && data.cloud_remove_list.length > 0) {
+                showinfo += t('removeServer') + ': ' + data.cloud_remove_list.length + ' ' + t('files') + '\n';
+            }
+            if (showinfo == "") {
+                showinfo = t('nothingToDo');
+                this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
+                console.warn('syncAll nothing to do')
+                return;
+            }
+            this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
+            if (upload_list && upload_list.length > 0) {
+                let updateFiles: TFile[] = [];
+                for (const dic of upload_list) {
+                    const file = this.app.vault.getAbstractFileByPath(dic['addr']);
+                    if (file instanceof TFile) {
+                        updateFiles.push(file);
+                    }
                 }
-                return response.json;
-            })
-            .then(async (data): Promise<void> => {
-                this.interrupt = false;
-                let showinfo = ""
-                let upload_list = data.upload_list;
-                let download_list = data.download_list;
-                let download_success = true;
-                if (upload_list && upload_list.length > 0) {
-                    showinfo += t('upload') + ': ' + upload_list.length + ' ' + t('files') + '\n';
-                }
-                if (download_list && download_list.length > 0) {
-                    showinfo += t('download') + ': ' + download_list.length + ' ' + t('files') + '\n';
-                }
-                if (data.remove_list && data.remove_list.length > 0) {
-                    showinfo += t('removeLocal') + ': ' + data.remove_list.length + ' ' + t('files') + '\n';
-                }
-                if (data.cloud_remove_list && data.cloud_remove_list.length > 0) {
-                    showinfo += t('removeServer') + ': ' + data.cloud_remove_list.length + ' ' + t('files') + '\n';
-                }
-                if (showinfo == "") {
-                    showinfo = t('nothingToDo');
-                    this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
-                    console.warn('syncAll nothing to do')
+                await this.uploadFiles(updateFiles);
+            }
+            if (download_list && download_list.length > 0) {
+                download_success = await this.downloadFiles(download_list)
+            }
+            if (data.remove_list && data.remove_list.length > 0) {
+                await this.removeFiles(data.remove_list)
+            }
+            // wait 1 second to show
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
+            await this.localInfo.update();
+            // lastSyncTime only affects file only in cloud
+            // if file only in cloud, and lastSyncTime is new, remove cloud file
+            // if download not success, maybe accidentally remove cloud file
+            if (download_success && false == this.interrupt) {
+                this.settings.lastSyncTime = new Date().getTime() + 5000; // 5 sec delay
+                this.plugin.saveSettings();
+            }
+        } catch (err) {
+            this.plugin.parseError(err, auto_login == false);
+            if (err.status === 401) {
+                if (auto_login) {
+                    await this.syncAll(false);
                     return;
                 }
-                this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
-                if (upload_list && upload_list.length > 0) {
-                    let updateFiles: TFile[] = [];
-                    for (const dic of upload_list) {
-                        const file = this.app.vault.getAbstractFileByPath(dic['addr']);
-                        if (file instanceof TFile) {
-                            updateFiles.push(file);
-                        }
-                    }
-                    await this.uploadFiles(updateFiles);
-                }
-                if (download_list && download_list.length > 0) {
-                    download_success = await this.downloadFiles(download_list)
-                }
-                if (data.remove_list && data.remove_list.length > 0) {
-                    await this.removeFiles(data.remove_list)
-                }
-                // wait 1 second to show
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
-                await this.localInfo.update();
-                // lastSyncTime only affects file only in cloud
-                // if file only in cloud, and lastSyncTime is new, remove cloud file
-                // if download not success, maybe accidentally remove cloud file
-                if (download_success && false == this.interrupt) {
-                    this.settings.lastSyncTime = new Date().getTime() + 5000; // 5 sec delay
-                    this.plugin.saveSettings();
-                }
-            })
-            .catch(err => {
-                this.plugin.parseError(err, auto_login == false);
-                if (err.status === 401) {
-                    if (auto_login) {
-                        this.syncAll(false);
-                        return;
-                    }
-                }
-                this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
-            });
+            }
+            this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
+        }
     }
 
     async removeFiles(filelist: []) {
@@ -397,13 +387,6 @@ export class Sync {
             if (response.status !== 200) {
                 throw response;
             }
-            //const blobData = await response.blob();
-            //const arrayBuffer = await new Promise((resolve, reject) => {
-            //    const reader = new FileReader();
-            //    reader.onload = () => resolve(reader.result);
-            //    reader.onerror = () => reject(reader.error);
-            //    reader.readAsArrayBuffer(blobData);
-            //});
             const arrayBuffer = await response.arrayBuffer;
             const dirname = filename.substring(0, filename.lastIndexOf('/'));
             if (!await this.app.vault.adapter.exists(dirname)) {
@@ -417,7 +400,7 @@ export class Sync {
             this.plugin.parseError(err);
             ret = false;
         }
-        return ret
+        return ret;
     }
 
     async syncCurrentMd(plugin: any) {

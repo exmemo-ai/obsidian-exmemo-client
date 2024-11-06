@@ -43,78 +43,72 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
             'Authorization': 'Token ' + plugin.settings.myToken
         }
     };
-    requestUrl(requestOptions)
-        .then(response => {
-            if (response.status === 200) {
-                return response.json;
-            } else {
-                throw response;
-            }
-        })
-        .then(data => {
-            if (data.results) {
-                const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
-                editor.replaceSelection('\n')
-                editor.replaceSelection(t('total') + ":" + data.results.length + '\n\n');
-                let desc = '';
-                for (let i = 0; i < data.results.length; i++) {
-                    if (data.results[i].etype == 'web') {
-                        desc = '* ' + JSON.stringify(data.results[i].title) + '\n'
-                        desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                        desc = desc + '  [' + JSON.stringify(data.results[i].title) + "](" + data.results[i].addr + ")\n\n";
-                        editor.replaceSelection(desc);
-                    } else if (data.results[i].etype == 'record') {
-                        let content = data.results[i].raw.replace(/[\r\n]+/g, '\n');
-                        desc = '* ' + JSON.stringify(data.results[i].title) + "\n"
-                        desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                        desc = desc + "  " + content + "\n\n"
-                        editor.replaceSelection(desc);
-                    } else if (data.results[i].etype == 'note') {
-                        let addr = data.results[i].addr;
-                        let path = addr.split('/');
-                        let vault_name = path[0];
-                        let rel_path = path.slice(1).join('/');
-                        let current_vault = this.app.vault.getName()
-                        if (current_vault == vault_name) {
-                            desc = '* [' + data.results[i].title + '](' + rel_path + ')\n'
-                        } else {
-                            desc = '* ' + data.results[i].title + ': ' + addr + '\n'
-                        }
-                        desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                        //editor.replaceSelection(desc)
-                        let content = data.results[i].raw
-                        if (content) {
-                            content = content.replace(/[\r\n]+/g, '\n');
-                            let content_lines = content.split('\n');
-                            for (let j = 0; j < content_lines.length; j++) {
-                                if (content_lines[j].indexOf(keyword) != -1) {
-                                    let line = content_lines[j].replace(keyword, '**' + keyword + '**');
-                                    desc = desc + line + '\n';
-                                    //editor.replaceSelection(line + '\n');
-                                    break
-                                }
+
+    try {
+        const response = await requestUrl(requestOptions);
+        if (response.status !== 200) {
+            throw response;
+        }
+        const data = await response.json;
+        if (data.results) {
+            const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
+            editor.replaceSelection('\n')
+            editor.replaceSelection(t('total') + ":" + data.results.length + '\n\n');
+            let desc = '';
+            for (let i = 0; i < data.results.length; i++) {
+                if (data.results[i].etype == 'web') {
+                    desc = '* ' + JSON.stringify(data.results[i].title) + '\n'
+                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
+                    desc = desc + '  [' + JSON.stringify(data.results[i].title) + "](" + data.results[i].addr + ")\n\n";
+                    editor.replaceSelection(desc);
+                } else if (data.results[i].etype == 'record') {
+                    let content = data.results[i].raw.replace(/[\r\n]+/g, '\n');
+                    desc = '* ' + JSON.stringify(data.results[i].title) + "\n"
+                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
+                    desc = desc + "  " + content + "\n\n"
+                    editor.replaceSelection(desc);
+                } else if (data.results[i].etype == 'note') {
+                    let addr = data.results[i].addr;
+                    let path = addr.split('/');
+                    let vault_name = path[0];
+                    let rel_path = path.slice(1).join('/');
+                    let current_vault = this.app.vault.getName()
+                    if (current_vault == vault_name) {
+                        desc = '* [' + data.results[i].title + '](' + rel_path + ')\n'
+                    } else {
+                        desc = '* ' + data.results[i].title + ': ' + addr + '\n'
+                    }
+                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
+                    let content = data.results[i].raw
+                    if (content) {
+                        content = content.replace(/[\r\n]+/g, '\n');
+                        let content_lines = content.split('\n');
+                        for (let j = 0; j < content_lines.length; j++) {
+                            if (content_lines[j].indexOf(keyword) != -1) {
+                                let line = content_lines[j].replace(keyword, '**' + keyword + '**');
+                                desc = desc + line + '\n';
+                                break
                             }
                         }
-                        if (data.results[i].content) {
-                            data.results[i].content = data.results[i].content.replace(/[\r\n]+/g, '\n');
-                            //editor.replaceSelection(data.results[i].content + '\n');
-                            desc = desc + data.results[i].content + '\n';
-                        }
-                        editor.replaceSelection(desc);
                     }
+                    if (data.results[i].content) {
+                        data.results[i].content = data.results[i].content.replace(/[\r\n]+/g, '\n');
+                        desc = desc + data.results[i].content + '\n';
+                    }
+                    editor.replaceSelection(desc);
                 }
             }
-        })
-        .catch(err => {
-            plugin.parseError(err, false);
-            if (err.status === 401) {
-                if (auto_login) {
-                    getDataList(plugin, ctype, etype, status, keyword, maxCount, startDate, endDate, false);
-                }
-            } else {
-                console.error(err);
+        }
+    } catch (err) {
+        plugin.parseError(err, false);
+        if (err.status === 401) {
+            if (auto_login) {
+                await getDataList(plugin, ctype, etype, status, keyword, maxCount, startDate, endDate, false);
             }
-        });
+        } else {
+            console.error(err);
+        }
+    }
 }
 
 export class SearchModal extends Modal {
