@@ -1,7 +1,6 @@
 import { TFile, MarkdownView, normalizePath, requestUrl, RequestUrlResponse } from 'obsidian';
 import { ConfirmModal } from 'src/utils';
 import { t } from "src/lang/helpers"
-import { Base64 } from 'js-base64';
 
 const MD5 = require('crypto-js/md5');
 const WordArray = require('crypto-js/lib-typedarrays');
@@ -29,36 +28,27 @@ export class Sync {
     }
 
 
-    async getBody(boundary: string, files: TFile[], additionalFields = {}) {
-        let body = "";
+    async formDataToArrayBuffer(formData: FormData, boundary: string) {
+        let chunks: any[] = [];
+        const formDataArray: [string, FormDataEntryValue][] = [];
+        formData.forEach((value: FormDataEntryValue, key: string) => {
+            formDataArray.push([key, value]);
+        });
 
-        for (const [key, value] of Object.entries(additionalFields)) {
-            body += `--${boundary}\r\n`;
-            body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
-            body += `${value}\r\n`;
+        for (const [name, value] of formDataArray) {
+            chunks.push(new TextEncoder().encode(`--${boundary}\r\n`));
+            if (value instanceof File) {
+                chunks.push(new TextEncoder().encode(`Content-Disposition: form-data; name="${name}"; filename="${value.name}"\r\n`));
+                chunks.push(new TextEncoder().encode(`Content-Type: ${value.type || 'application/octet-stream'}\r\n\r\n`));
+                chunks.push(new Uint8Array(await value.arrayBuffer()));
+                chunks.push(new TextEncoder().encode("\r\n"));
+            } else {
+                chunks.push(new TextEncoder().encode(`Content-Disposition: form-data; name="${name}"\r\n\r\n`));
+                chunks.push(new TextEncoder().encode(`${value}\r\n`));
+            }
         }
-
-        for (const file of files) {
-            body += `--${boundary}\r\n`;
-            body += `Content-Disposition: form-data; name="files"; filename="${file.name}"\r\n`;
-            body += `Content-Type: ${"application/octet-stream"}\r\n\r\n`;
-            const fileContent = await this.app.vault.readBinary(file);
-            const base64Content = Base64.fromUint8Array(new Uint8Array(fileContent));
-            body += base64Content + "\r\n";
-
-            body += `--${boundary}\r\n`;
-            body += `Content-Disposition: form-data; name="filepaths"\r\n\r\n`;
-            body += `${file.path}\r\n`;
-
-            const md5 = this.localInfo.fileInfoList[file.path] ? this.localInfo.fileInfoList[file.path].md5 : '';
-            body += `--${boundary}\r\n`;
-            body += `Content-Disposition: form-data; name="filemd5s"\r\n\r\n`;
-            body += `${md5}\r\n`;
-        }
-
-        body += `--${boundary}--\r\n`;
-
-        return body;
+        chunks.push(new TextEncoder().encode(`--${boundary}--\r\n`));
+        return new Blob(chunks).arrayBuffer();
     }
 
     async uploadFiles(uploadList: TFile[]) {
@@ -77,13 +67,22 @@ export class Sync {
             }
             const boundary = "----WebKitFormBoundary" + Math.random().toString(36).slice(2);
             const group = uploadList.slice(i * groupSize, (i + 1) * groupSize);
-            const additionalFields = {
-                'etype': 'note',
-                'source': 'obsidian_plugin',
-                'vault': this.app.vault.getName(),
-                'rtype': 'upload',
-                'user_name': this.settings.myUsername
-            };
+            const body = new FormData();
+            body.append('etype', 'note');
+            body.append('source', 'obsidian_plugin');
+            body.append('vault', this.app.vault.getName());
+            body.append('rtype', 'upload');
+            body.append('user_name', this.settings.myUsername);
+            for (let file of group) {
+                const fileContent = await this.app.vault.readBinary(file);
+                const blob = new Blob([fileContent]);
+                body.append('files', blob, file.name);
+                body.append('filepaths', file.path);
+                if (this.localInfo.fileInfoList[file.path]) {
+                    body.append('filemd5s', this.localInfo.fileInfoList[file.path].md5);
+                }
+            }
+
             const requestOptions = {
                 url: url.toString(),
                 method: 'POST',
@@ -91,7 +90,7 @@ export class Sync {
                     'Authorization': 'Token ' + this.settings.myToken,
                     "Content-Type": `multipart/form-data; boundary=${boundary}`
                 },
-                body: await this.getBody(boundary, group, additionalFields),
+                body: await this.formDataToArrayBuffer(body, boundary)
             };
             try {
                 const response = await requestUrl(requestOptions);
