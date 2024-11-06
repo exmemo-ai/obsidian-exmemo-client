@@ -1,10 +1,10 @@
-import { TFile, MarkdownView, normalizePath } from 'obsidian';
+import { TFile, MarkdownView, normalizePath, requestUrl, RequestUrlResponse } from 'obsidian';
 import { ConfirmModal } from 'src/utils';
 import { t } from "src/lang/helpers"
+import { Base64 } from 'js-base64';
 
 const MD5 = require('crypto-js/md5');
 const WordArray = require('crypto-js/lib-typedarrays');
-const DEBUG = false;
 
 export class Sync {
     app: any;
@@ -28,6 +28,39 @@ export class Sync {
         };
     }
 
+
+    async getBody(boundary: string, files: TFile[], additionalFields = {}) {
+        let body = "";
+
+        for (const [key, value] of Object.entries(additionalFields)) {
+            body += `--${boundary}\r\n`;
+            body += `Content-Disposition: form-data; name="${key}"\r\n\r\n`;
+            body += `${value}\r\n`;
+        }
+
+        for (const file of files) {
+            body += `--${boundary}\r\n`;
+            body += `Content-Disposition: form-data; name="files"; filename="${file.name}"\r\n`;
+            body += `Content-Type: ${"application/octet-stream"}\r\n\r\n`;
+            const fileContent = await this.app.vault.readBinary(file);
+            const base64Content = Base64.fromUint8Array(new Uint8Array(fileContent));
+            body += base64Content + "\r\n";
+
+            body += `--${boundary}\r\n`;
+            body += `Content-Disposition: form-data; name="filepaths"\r\n\r\n`;
+            body += `${file.path}\r\n`;
+
+            const md5 = this.localInfo.fileInfoList[file.path] ? this.localInfo.fileInfoList[file.path].md5 : '';
+            body += `--${boundary}\r\n`;
+            body += `Content-Disposition: form-data; name="filemd5s"\r\n\r\n`;
+            body += `${md5}\r\n`;
+        }
+
+        body += `--${boundary}--\r\n`;
+
+        return body;
+    }
+
     async uploadFiles(uploadList: TFile[]) {
         const url = new URL(this.settings.url + '/api/entry/data/');
         const groupSize = 5;
@@ -39,38 +72,33 @@ export class Sync {
             t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
             { 'button': this.interruptButton });
         for (let i = 0; i < groupCount; i++) {
-            // sleep 5 sec for test
-            // await new Promise(resolve => setTimeout(resolve, 5000));
             if (this.interrupt) {
                 break;
             }
+            const boundary = "----WebKitFormBoundary" + Math.random().toString(36).slice(2);
             const group = uploadList.slice(i * groupSize, (i + 1) * groupSize);
-            const requestOptions = {
-                method: 'POST',
-                headers: { 'Authorization': 'Token ' + this.settings.myToken },
-                body: new FormData()
+            const additionalFields = {
+                'etype': 'note',
+                'source': 'obsidian_plugin',
+                'vault': this.app.vault.getName(),
+                'rtype': 'upload',
+                'user_name': this.settings.myUsername
             };
-            let file: TFile;
-            for (file of group) {
-                const fileContent = await this.app.vault.readBinary(file);
-                const blob = new Blob([fileContent]);
-                requestOptions.body.append('etype', 'note');
-                requestOptions.body.append('source', 'obsidian_plugin');
-                requestOptions.body.append('vault', this.app.vault.getName());
-                requestOptions.body.append('rtype', 'upload');
-                requestOptions.body.append('files', blob, file.name);
-                requestOptions.body.append('filepaths', file.path);
-                if (this.localInfo.fileInfoList[file.path]) {
-                    requestOptions.body.append('filemd5s', this.localInfo.fileInfoList[file.path].md5);
-                }
-            }
-            requestOptions.body.append('user_name', this.settings.myUsername);
-            await fetch(url.toString(), requestOptions)
+            const requestOptions = {
+                url: url.toString(),
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Token ' + this.settings.myToken,
+                    "Content-Type": `multipart/form-data; boundary=${boundary}`
+                },
+                body: await this.getBody(boundary, group, additionalFields),
+            };
+            await requestUrl(requestOptions)
                 .then(response => {
-                    if (!response.ok) {
+                    if (response.status !== 200) {
                         throw response;
                     }
-                    return response.json();
+                    return response.json;
                 })
                 .then(data => {
                     if (data.list) {
@@ -159,24 +187,30 @@ export class Sync {
         return ret_string
     }
 
+
     async check_server_update() {
         let ret = false;
         const url = new URL(this.settings.url + '/api/sync/');
+        let params = new URLSearchParams();
+        params.append('user_name', this.settings.myUsername);
+        params.append('vault', this.app.vault.getName());
+        params.append('rtype', 'check_update');
+        params.append('last_sync_time', this.settings.lastSyncTime.toString());
         const requestOptions = {
+            url: url.toString(),
             method: 'POST',
-            headers: { 'Authorization': 'Token ' + this.settings.myToken },
-            body: new FormData()
+            headers: {
+                'Authorization': 'Token ' + this.settings.myToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
         };
-        requestOptions.body.append('user_name', this.settings.myUsername);
-        requestOptions.body.append('vault', this.app.vault.getName());
-        requestOptions.body.append('rtype', 'check_update');
-        requestOptions.body.append('last_sync_time', this.settings.lastSyncTime.toString())
-        await fetch(url.toString(), requestOptions)
+        await requestUrl(requestOptions)
             .then(response => {
-                if (!response.ok) {
+                if (response.status !== 200) {
                     throw response;
                 }
-                return response.json();
+                return response.json;
             })
             .then(async (data): Promise<void> => {
                 if (data.update == true) {
@@ -208,24 +242,30 @@ export class Sync {
         const exclude_str = this.regular_rules(this.settings.exclude);
         const fileList = await this.getLocalFiles(include_str, exclude_str);
         const url = new URL(this.settings.url + '/api/sync/');
+        const params = new URLSearchParams();
+        params.append('user_name', this.settings.myUsername);
+        params.append('vault', this.app.vault.getName());
+        params.append('rtype', 'compare');
+        params.append('include', include_str);
+        params.append('exclude', exclude_str);
+        params.append('last_sync_time', this.settings.lastSyncTime.toString());
+        params.append('files', JSON.stringify(fileList));
+        //console.log('compare files: ' + fileList.length);
         const requestOptions = {
+            url: url.toString(),
             method: 'POST',
-            headers: { 'Authorization': 'Token ' + this.settings.myToken },
-            body: new FormData()
+            headers: {
+                'Authorization': 'Token ' + this.settings.myToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: params.toString()
         };
-        requestOptions.body.append('user_name', this.settings.myUsername);
-        requestOptions.body.append('vault', this.app.vault.getName());
-        requestOptions.body.append('rtype', 'compare');
-        requestOptions.body.append('include', include_str);
-        requestOptions.body.append('exclude', exclude_str);
-        requestOptions.body.append('last_sync_time', this.settings.lastSyncTime.toString())
-        requestOptions.body.append('files', JSON.stringify(fileList));
-        await fetch(url.toString(), requestOptions)
+        await requestUrl(requestOptions)
             .then(response => {
-                if (!response.ok) {
+                if (response.status !== 200) {
                     throw response;
                 }
-                return response.json();
+                return response.json;
             })
             .then(async (data): Promise<void> => {
                 this.interrupt = false;
@@ -345,27 +385,31 @@ export class Sync {
         let ret = true;
         const url = new URL(this.settings.url + '/api/entry/data/' + idx + '/' + 'download/');
         const requestOptions = {
+            url: url.toString(),
             method: 'GET',
-            headers: { 'Authorization': 'Token ' + this.settings.myToken }
+            headers: {
+                'Authorization': 'Token ' + this.settings.myToken,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
         };
         try {
-            const response = await fetch(url.toString(), requestOptions);
-            if (!response.ok) {
+            const response: RequestUrlResponse = await requestUrl(requestOptions);
+            if (response.status !== 200) {
                 throw response;
             }
-            
-            const blobData = await response.blob();
-            const arrayBuffer = await new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(reader.error);
-                reader.readAsArrayBuffer(blobData);
-            });
+            //const blobData = await response.blob();
+            //const arrayBuffer = await new Promise((resolve, reject) => {
+            //    const reader = new FileReader();
+            //    reader.onload = () => resolve(reader.result);
+            //    reader.onerror = () => reject(reader.error);
+            //    reader.readAsArrayBuffer(blobData);
+            //});
+            const arrayBuffer = await response.arrayBuffer;
             const dirname = filename.substring(0, filename.lastIndexOf('/'));
             if (!await this.app.vault.adapter.exists(dirname)) {
                 await this.app.vault.adapter.mkdir(dirname, { recursive: true });
             }
-        
+
             if (arrayBuffer instanceof ArrayBuffer) {
                 await this.app.vault.adapter.writeBinary(filename, arrayBuffer);
             }
@@ -417,7 +461,7 @@ export class LocalInfo {
         const files = vault.getFiles();
         if (files.length == 0) {
             console.warn('no vault files, wait for next update')
-            return;
+            return false;
         }
         this.plugin.showNotice('temp', 'ExMemo' + t('updateIndex'));
         let count = 0;
@@ -448,7 +492,7 @@ export class LocalInfo {
         }
         this.plugin.hideNotice('temp')
         if (count > 0) {
-            this.save();
+            await this.save();
             return true;
         }
         return false;
@@ -463,7 +507,7 @@ export class LocalInfo {
     }
 
     async load() {
-        if (await this.app.vault.adapter.exists(this.jsonPath)) {            
+        if (await this.app.vault.adapter.exists(this.jsonPath)) {
             const fileInfoStr = await this.app.vault.adapter.read(this.jsonPath);
             this.fileInfoList = JSON.parse(fileInfoStr);
         }

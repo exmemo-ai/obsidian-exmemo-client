@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Plugin } from 'obsidian';
+import { Editor, MarkdownView, Plugin, requestUrl, RequestUrlResponse } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
 import { SearchModal } from 'src/search';
@@ -75,6 +75,7 @@ export default class ExMemoPlugin extends Plugin {
 		await new Promise(resolve => setTimeout(resolve, 3000));
 		const url = new URL(this.settings.url + '/api/auth/login/');
 		const requestOptions = {
+			url: url.toString(),
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -83,9 +84,9 @@ export default class ExMemoPlugin extends Plugin {
 			})
 		};
 		try {
-			const response = await fetch(url.toString(), requestOptions);
-			if (response.ok) {
-				const data = await response.json();
+			const response: RequestUrlResponse = await requestUrl(requestOptions);
+			if (response.status === 200) {
+				const data = await response.json;
 				this.settings.myToken = data.token;
 				this.saveSettings();
 				this.hideNotice('auth');

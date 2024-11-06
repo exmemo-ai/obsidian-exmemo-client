@@ -1,75 +1,7 @@
-import { App, Modal } from 'obsidian';
+import { App, Modal, requestUrl } from 'obsidian';
 import { MarkdownView, Notice } from 'obsidian';
 import { t } from "src/lang/helpers"
 
-export async function searchData(plugin: any, keyword: string, auto_login: boolean = true) {
-
-    if (plugin.settings.myToken == '') {
-        await plugin.getMyToken();
-    }
-    if (plugin.settings.myToken == '') {
-        return;
-    }
-
-    const url = new URL(plugin.settings.url + '/api/entry/data/');
-    url.searchParams.append('user_name', plugin.settings.myUsername);
-    url.searchParams.append('rtype', 'search');
-    url.searchParams.append('keyword', keyword);
-    url.searchParams.append('etype', 'note');
-    url.searchParams.append('page', '1');
-    url.searchParams.append('page_size', '10');
-    new Notice(t('search') + ': ' + keyword);
-
-    await fetch(url.toString(), {
-        method: 'GET',
-        headers: { 'Authorization': 'Token ' + plugin.settings.myToken },
-    })
-
-        .then(response => {
-            if (!response.ok) {
-                throw response;
-            }
-            return response.json();
-        })
-
-        .then(data => {
-            if (data.results) {
-                const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
-                if (editor) {
-                    editor.replaceSelection('\n')
-                    for (let i = 0; i < data.results.length; i++) {
-                        editor.replaceSelection('[' + data.results[i].title + '](' + data.results[i].addr + ')\n')
-                        let content = data.results[i].raw
-                        if (content) {
-                            content = content.replace(/[\r\n]+/g, '\n');
-                            let content_lines = content.split('\n');
-                            for (let j = 0; j < content_lines.length; j++) {
-                                if (content_lines[j].indexOf(keyword) != -1) {
-                                    let line = content_lines[j].replace(keyword, '**' + keyword + '**');
-                                    editor.replaceSelection(line + '\n');
-                                    break
-                                }
-                            }
-                        }
-                        if (data.results[i].content) {
-                            data.results[i].content = data.results[i].content.replace(/[\r\n]+/g, '\n');
-                            editor.replaceSelection(data.results[i].content + '\n');
-                        }
-                    }
-                }
-            }
-
-        }).catch(err => {
-            plugin.parseError(err, false);
-            if (err.status === 401) {
-                if (auto_login) {
-                    plugin.searchData(keyword, false);
-                }
-            } else {
-                console.error(err);
-            }
-        });
-}
 
 export async function getDataList(plugin: any, ctype: string, etype: string,
     status: string, keyword: string, maxCount = '', startDate = '', endDate = '', auto_login = true) {
@@ -81,14 +13,6 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
     }
 
     const url = new URL(plugin.settings.url + '/api/entry/data/');
-    const requestOptions = {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Token ' + plugin.settings.myToken
-        }
-    };
-
     if (ctype && ctype != '') {
         url.searchParams.append('ctype', ctype);
     }
@@ -111,12 +35,21 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
 
     url.searchParams.append('max_count', maxCount);
 
-    fetch(url.toString(), requestOptions)
+    const requestOptions = {
+        url: url.toString(),
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Token ' + plugin.settings.myToken
+        }
+    };
+    requestUrl(requestOptions)
         .then(response => {
-            if (!response.ok) {
+            if (response.status === 200) {
+                return response.json;
+            } else {
                 throw response;
             }
-            return response.json();
         })
         .then(data => {
             if (data.results) {
