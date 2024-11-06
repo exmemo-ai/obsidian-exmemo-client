@@ -84,3 +84,5 @@ Before using "Sync All Files" for the first time, please back up your Obsidian d
 ## 5 License
 
 This project is licensed under GNU Lesser General Public License v3.0. For details, please refer to [LICENSE](./LICENSE) file.
+
+[![coffee](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20coffee&emoji=%E2%98%95&slug=windingblack&button_colour=FFDD00&font_colour=000000&font_family=Comic&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/xieyan0811y)

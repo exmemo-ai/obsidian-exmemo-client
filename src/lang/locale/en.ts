@@ -58,5 +58,9 @@ export default {
   'are_you_sure': 'Are you sure?',
   'yes': "Yes",
   'no': "No",
-  'delete_files': 'Delete the following files:'
+  'delete_files': 'Delete the following files:',
+  'donate': 'Donate',
+  'bugMeACoffee': 'Buy Me a Coffee',
+  'supportThisPlugin': 'Support this plugin',
+  'supportThisPluginDesc': 'If you find this plugin helpful, consider buying me a coffee!',
 }

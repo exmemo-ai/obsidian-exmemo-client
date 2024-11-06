@@ -60,4 +60,8 @@ export default {
     'yes': "是",
     'no': "否",
     'delete_files': '是否删除以下文件',
+    'donate': '捐赠',
+    'bugMeACoffee': '请我喝咖啡',
+    'supportThisPlugin': '支持此插件',
+    'supportThisPluginDesc': '如果您觉得这个插件有用，请考虑请我喝杯咖啡！',
 }

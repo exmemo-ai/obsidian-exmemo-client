@@ -114,5 +114,17 @@ export class ExMemoSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 					this.plugin.resetSyncInterval();
 				}));
+		//
+		new Setting(containerEl).setName(t('donate')).setHeading();
+        new Setting(containerEl)
+            .setName(t('supportThisPlugin'))
+            .setDesc(t('supportThisPluginDesc'))
+            .addButton((button) => {
+                button.setButtonText(t('bugMeACoffee'))
+                    .setCta()
+                    .onClick(() => {
+                        window.open('https://buymeacoffee.com/xieyan0811y', '_blank');
+                    });
+            });
 	}
 }
