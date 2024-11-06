@@ -482,7 +482,6 @@ export class LocalInfo {
 
     async save() {
         const fileInfoStr = JSON.stringify(this.fileInfoList, null, 2);
-        //fs.writeFileSync(this.jsonPath, fileInfoStr);
         await this.app.vault.adapter.write(this.jsonPath, fileInfoStr);
         this.plugin.settings.lastIndexTime = new Date().getTime();
         this.plugin.saveSettings();
