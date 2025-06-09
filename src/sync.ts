@@ -12,6 +12,7 @@ export class Sync {
     interrupt: boolean;
     interruptButton: any;
     localInfo: LocalInfo;
+    currentModal: ConfirmModal | null = null;
 
     constructor(plugin: any, app: any, settings: any) {
         this.plugin = plugin;
@@ -323,26 +324,34 @@ export class Sync {
 
     async removeFiles(filelist: []) {
         let info = t('delete_files');
-        info += "\n"
+        info += "\n";
         for (const dic of filelist) {
             info += '\n' + dic['addr'];
         }
-        const userConfirmed = await new Promise((resolve) => {
-            new ConfirmModal(this.app, info, resolve).open();
-        });
 
-        if (userConfirmed) {
-            for (const dic of filelist) {
-                if (this.interrupt) {
-                    break;
-                }
-                try {
-                    this.app.vault.trash(this.app.vault.getAbstractFileByPath(dic['addr']));
-                } catch (error) {
-                    console.error(error);
+        if (this.plugin.currentModal) {
+            this.plugin.currentModal.close();
+            this.plugin.currentModal = null;
+        }
+
+        const confirmModal = new ConfirmModal(this.app, info, (userConfirmed) => {
+            if (userConfirmed) {
+                for (const dic of filelist) {
+                    if (this.interrupt) {
+                        break;
+                    }
+                    try {
+                        this.app.vault.trash(this.app.vault.getAbstractFileByPath(dic['addr']));
+                    } catch (error) {
+                        console.error(error);
+                    }
                 }
             }
-        }
+            this.plugin.currentModal = null;
+        });
+
+        this.plugin.currentModal = confirmModal;
+        confirmModal.open();
     }
 
     async downloadFiles(filelist: []) {

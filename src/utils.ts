@@ -36,5 +36,8 @@ export class ConfirmModal extends Modal {
     onClose() {
         const { contentEl } = this;
         contentEl.empty();
+        if (this.resolvePromise) {
+            this.resolvePromise(false); // default to false if modal is closed without action
+        }
     }
 }
