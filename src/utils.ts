@@ -1,4 +1,4 @@
-import { App, Modal } from 'obsidian';
+import { App, Modal, requestUrl, RequestUrlResponse } from 'obsidian';
 import { t } from "src/lang/helpers"
 
 export class ConfirmModal extends Modal {
@@ -39,5 +39,77 @@ export class ConfirmModal extends Modal {
         if (this.resolvePromise) {
             this.resolvePromise(false); // default to false if modal is closed without action
         }
+    }
+}
+
+async function ensureToken(plugin: any): Promise<boolean> {
+    if (plugin.settings.myToken !== '') {
+        return true;
+    }
+    
+    if (plugin.settings.url === '' || plugin.settings.myUsername === '' || plugin.settings.myPassword === '') {
+        plugin.showNotice('temp', t('login_info_missing'), { timeout: 3000 });
+        return false;
+    }
+    plugin.showNotice('auth', t('login'));
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    const url = new URL(plugin.settings.url + '/api/auth/login/');
+    const requestOptions = {
+        url: url.toString(),
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            username: plugin.settings.myUsername,
+            password: plugin.settings.myPassword
+        })
+    };
+    
+    try {
+        const response: RequestUrlResponse = await requestUrl(requestOptions);
+        if (response.status === 200) {
+            const data = await response.json;
+            plugin.settings.myToken = data.token;
+            plugin.saveSettings();
+            plugin.hideNotice('auth');
+            return true;
+        }
+    } catch (error) {
+        console.error(error);
+    }
+    
+    plugin.hideNotice('auth');
+    plugin.showNotice('temp', t('loginFailed'), { timeout: 3000 });
+    return false;
+}
+
+export async function requestWithToken(plugin: any, requestOptions: any, autoLogin: boolean = true): Promise<any> {
+    if (!await ensureToken(plugin)) {
+        return null;
+    }
+
+    try {
+        const response = await requestUrl(requestOptions);
+        if (response.status !== 200) {
+            throw response;
+        }
+        return response;
+    } catch (err) {
+        if (err.status === 401) {
+            plugin.settings.myToken = '';
+            plugin.saveSettings();
+            if (autoLogin) {
+                if (await ensureToken(plugin)) {
+                    return await requestUrl(requestOptions);
+                }
+            } else {
+                let showinfo = t('loginExpired') + ': ' + err.status;
+                plugin.showNotice('error', showinfo, { timeout: 3000 });
+            }
+        } else {
+            console.error(err);
+            let showinfo = t('connectFailed') + ': ' + err.status;
+            plugin.showNotice('error', showinfo, { timeout: 3000 });
+        }
+        throw err;
     }
 }

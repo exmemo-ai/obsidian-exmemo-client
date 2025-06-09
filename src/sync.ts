@@ -1,5 +1,5 @@
-import { TFile, MarkdownView, normalizePath, requestUrl, RequestUrlResponse } from 'obsidian';
-import { ConfirmModal } from 'src/utils';
+import { TFile, MarkdownView, normalizePath, RequestUrlResponse } from 'obsidian';
+import { ConfirmModal, requestWithToken } from 'src/utils';
 import { t } from "src/lang/helpers"
 
 const MD5 = require('crypto-js/md5');
@@ -27,7 +27,6 @@ export class Sync {
             }
         };
     }
-
 
     async formDataToArrayBuffer(formData: FormData, boundary: string) {
         let chunks: any[] = [];
@@ -62,6 +61,7 @@ export class Sync {
         this.plugin.showNotice('sync',
             t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
             { 'button': this.interruptButton });
+
         for (let i = 0; i < groupCount; i++) {
             if (this.interrupt) {
                 break;
@@ -93,11 +93,9 @@ export class Sync {
                 },
                 body: await this.formDataToArrayBuffer(body, boundary)
             };
+
             try {
-                const response = await requestUrl(requestOptions);
-                if (response.status !== 200) {
-                    throw response;
-                }
+                const response = await requestWithToken(this.plugin, requestOptions);
                 const data = await response.json;
                 if (data.list) {
                     for (const file of group) {
@@ -106,16 +104,13 @@ export class Sync {
                         }
                     }
                 }
-                if (data.emb_status) {
-                    if (data.emb_status == 'failed') {
-                        this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
-                    }
+                if (data.emb_status && data.emb_status === 'failed') {
+                    this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
                 }
                 this.plugin.showNotice('sync',
                     t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
                     { 'button': this.interruptButton });
             } catch (err) {
-                this.plugin.parseError(err);
                 ret = false;
             }
         }
@@ -170,7 +165,7 @@ export class Sync {
         return fileList;
     }
 
-    regular_rules(rule_str: string) {
+    regularRules(rule_str: string) {
         if (rule_str == '') {
             return rule_str;
         }
@@ -184,15 +179,14 @@ export class Sync {
         return ret_string
     }
 
-
-    async check_server_update() {
-        let ret = false;
+    async checkServerUpdate() {
         const url = new URL(this.settings.url + '/api/sync/');
-        let params = new URLSearchParams();
+        const params = new URLSearchParams();
         params.append('user_name', this.settings.myUsername);
         params.append('vault', this.app.vault.getName());
         params.append('rtype', 'check_update');
         params.append('last_sync_time', this.settings.lastSyncTime.toString());
+
         const requestOptions = {
             url: url.toString(),
             method: 'POST',
@@ -202,38 +196,28 @@ export class Sync {
             },
             body: params.toString()
         };
+
         try {
-            const response = await requestUrl(requestOptions);
-            if (response.status !== 200) {
-                throw response;
-            }
+            const response = await requestWithToken(this.plugin, requestOptions);
             const data = await response.json;
-            if (data.update == true) {
-                ret = true;
-            }
+            return data.update === true;
         } catch (err) {
-            this.plugin.parseError(err, true);
-            this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
+            return false;
         }
-        return ret;
     }
 
-    async syncAll(auto_login: boolean = true) {
+    async syncAll(autoLogin: boolean = true) {
         await this.localInfo.update();
-        if (this.settings.myToken == '') {
-            await this.plugin.getMyToken();
-        }
-        if (this.settings.myToken == '') {
-            return;
-        }
+
         if (this.settings.lastSyncTime > this.settings.lastIndexTime) {
-            if (await this.check_server_update() == false) {
+            if (!await this.checkServerUpdate()) {
                 this.plugin.showNotice('temp', t('sync') + ": " + t('sync_no_file_change'), { timeout: 3000 });
                 return;
             }
         }
-        const include_str = this.regular_rules(this.settings.include);
-        const exclude_str = this.regular_rules(this.settings.exclude);
+
+        const include_str = this.regularRules(this.settings.include);
+        const exclude_str = this.regularRules(this.settings.exclude);
         const fileList = await this.getLocalFiles(include_str, exclude_str);
         const url = new URL(this.settings.url + '/api/sync/');
         const params = new URLSearchParams();
@@ -244,6 +228,7 @@ export class Sync {
         params.append('exclude', exclude_str);
         params.append('last_sync_time', this.settings.lastSyncTime.toString());
         params.append('files', JSON.stringify(fileList));
+
         const requestOptions = {
             url: url.toString(),
             method: 'POST',
@@ -253,11 +238,9 @@ export class Sync {
             },
             body: params.toString()
         };
+
         try {
-            const response = await requestUrl(requestOptions);
-            if (response.status !== 200) {
-                throw response;
-            }
+            const response = await requestWithToken(this.plugin, requestOptions, autoLogin);
             const data = await response.json;
             this.interrupt = false;
             let showinfo = ""
@@ -311,14 +294,7 @@ export class Sync {
                 this.plugin.saveSettings();
             }
         } catch (err) {
-            this.plugin.parseError(err, auto_login == false);
-            if (err.status === 401) {
-                if (auto_login) {
-                    await this.syncAll(false);
-                    return;
-                }
-            }
-            this.plugin.showNotice('sync', t('syncFailed'), { timeout: 3000 });
+            this.plugin.showNotice('sync', t('syncFailed') + ': ' + err.status, { timeout: 3000 });
         }
     }
 
@@ -391,10 +367,7 @@ export class Sync {
             }
         };
         try {
-            const response: RequestUrlResponse = await requestUrl(requestOptions);
-            if (response.status !== 200) {
-                throw response;
-            }
+            const response: RequestUrlResponse = await requestWithToken(this.plugin, requestOptions);
             const arrayBuffer = await response.arrayBuffer;
             const dirname = filename.substring(0, filename.lastIndexOf('/'));
             if (!await this.app.vault.adapter.exists(dirname)) {
@@ -405,19 +378,12 @@ export class Sync {
                 await this.app.vault.adapter.writeBinary(filename, arrayBuffer);
             }
         } catch (err) {
-            this.plugin.parseError(err);
             ret = false;
         }
         return ret;
     }
 
-    async syncCurrentMd(plugin: any) {
-        if (this.settings.myToken == '') {
-            await this.plugin.getMyToken();
-        }
-        if (this.settings.myToken == '') {
-            return;
-        }
+    async syncCurrentMd(plugin: any) {       
         this.interrupt = false;
         const file: TFile = this.app.workspace.getActiveViewOfType(MarkdownView).file;
         let [ret, list] = await this.uploadFiles([file]);
@@ -445,7 +411,6 @@ export class LocalInfo {
         this.jsonPath = `${this.plugin.manifest.dir}/file_info.json`;
         this.load();
     }
-
 
     async update() {
         const vault = this.app.vault;

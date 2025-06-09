@@ -1,16 +1,10 @@
 import { App, Modal, requestUrl } from 'obsidian';
 import { MarkdownView, Notice } from 'obsidian';
 import { t } from "src/lang/helpers"
-
+import { requestWithToken } from "src/utils";
 
 export async function getDataList(plugin: any, ctype: string, etype: string,
     status: string, keyword: string, maxCount = '', startDate = '', endDate = '', auto_login = true) {
-    if (plugin.settings.myToken == '') {
-        await plugin.getMyToken();
-    }
-    if (plugin.settings.myToken == '') {
-        return;
-    }
 
     const url = new URL(plugin.settings.url + '/api/entry/data/');
     if (ctype && ctype != '') {
@@ -45,10 +39,7 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
     };
 
     try {
-        const response = await requestUrl(requestOptions);
-        if (response.status !== 200) {
-            throw response;
-        }
+        const response = await requestWithToken(plugin, requestOptions, auto_login);
         const data = await response.json;
         if (data.results) {
             const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
@@ -72,7 +63,7 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
                     let path = addr.split('/');
                     let vault_name = path[0];
                     let rel_path = path.slice(1).join('/');
-                    let current_vault = this.app.vault.getName()
+                    let current_vault = plugin.app.vault.getName()
                     if (current_vault == vault_name) {
                         desc = '* [' + data.results[i].title + '](' + rel_path + ')\n'
                     } else {
@@ -100,14 +91,8 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
             }
         }
     } catch (err) {
-        plugin.parseError(err, false);
-        if (err.status === 401) {
-            if (auto_login) {
-                await getDataList(plugin, ctype, etype, status, keyword, maxCount, startDate, endDate, false);
-            }
-        } else {
-            console.error(err);
-        }
+        plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
+        console.error(err);
     }
 }
 

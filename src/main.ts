@@ -66,57 +66,6 @@ export default class ExMemoPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async getMyToken() {
-		if (this.settings.url === '' || this.settings.myUsername === '' || this.settings.myPassword === '') {
-			this.showNotice('temp', t('login_info_missing'), { timeout: 3000 });
-			return false
-		}
-		this.showNotice('auth', t('login'));
-		await new Promise(resolve => setTimeout(resolve, 3000));
-		const url = new URL(this.settings.url + '/api/auth/login/');
-		const requestOptions = {
-			url: url.toString(),
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				username: this.settings.myUsername,
-				password: this.settings.myPassword
-			})
-		};
-		try {
-			const response: RequestUrlResponse = await requestUrl(requestOptions);
-			if (response.status === 200) {
-				const data = await response.json;
-				this.settings.myToken = data.token;
-				this.saveSettings();
-				this.hideNotice('auth');
-				return true
-			}
-		} catch (error) {
-			console.error(error);
-		}
-		this.hideNotice('auth');
-		this.showNotice('temp', t('loginFailed'), { timeout: 3000 });
-		return false
-	}
-
-	parseError(err: any, show_notice: boolean = true) {
-		if (err.status === 401) {
-			this.settings.myToken = '';
-			this.saveSettings();
-			if (show_notice) {
-				let showinfo = t('loginExpired') + ': ' + err.status;
-				this.showNotice('error', showinfo, { timeout: 3000 });
-			}
-		} else {
-			console.error(err);
-			if (show_notice) {
-				let showinfo = t('syncFailed') + ': ' + err.status;
-				this.showNotice('error', showinfo, { timeout: 3000 });
-			}
-		}
-	}
-
 	resetSyncInterval() {
 		let interval = this.settings.syncInterval;
 		if (this.syncIntervalId !== 0) {
