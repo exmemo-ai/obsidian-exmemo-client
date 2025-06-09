@@ -66,4 +66,8 @@ export default {
     'bugMeACoffee': '请我喝咖啡',
     'supportThisPlugin': '支持此插件',
     'supportThisPluginDesc': '如果您觉得这个插件有用，请考虑请我喝杯咖啡！',
+    'conflictDetected': '检测到冲突',
+    'conflictMessage': '以下文件在本地和服务器上都有更改。请选择保留哪个版本：',
+    'skip': '跳过',
+    'conflicts': '冲突'
 }

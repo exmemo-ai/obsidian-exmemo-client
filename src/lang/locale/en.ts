@@ -65,4 +65,8 @@ export default {
   'bugMeACoffee': 'Buy me a coffee',
   'supportThisPlugin': 'Support this plugin',
   'supportThisPluginDesc': 'If you find this plugin helpful, consider buying me a coffee!',
+  'conflictDetected': 'Conflict Detected',
+  'conflictMessage': 'The following files have changes both locally and on the server. Please choose which version to keep:',
+  'skip': 'Skip',
+  'conflicts': 'Conflicts'
 }

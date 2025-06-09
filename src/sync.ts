@@ -1,9 +1,69 @@
-import { TFile, MarkdownView, normalizePath, RequestUrlResponse } from 'obsidian';
+import { TFile, MarkdownView, normalizePath, RequestUrlResponse, Modal, Setting } from 'obsidian';
 import { ConfirmModal, requestWithToken } from 'src/utils';
 import { t } from "src/lang/helpers"
 
 const MD5 = require('crypto-js/md5');
 const WordArray = require('crypto-js/lib-typedarrays');
+
+export interface FileInfo {
+    path: string;
+    md5: string;
+    mtime: number;
+    lastSyncTime?: number;
+}
+
+export class ConflictModal extends Modal {
+    result: string = '';
+    onSubmit: (result: string) => void;
+    conflictFiles: any[];
+    
+    constructor(app: any, conflictFiles: any[], onSubmit: (result: string) => void) {
+        super(app);
+        this.onSubmit = onSubmit;
+        this.conflictFiles = conflictFiles;
+    }
+
+    onOpen() {
+        const {contentEl} = this;
+        
+        contentEl.createEl('h2', {text: t('conflictDetected')});
+        contentEl.createEl('p', {text: t('conflictMessage')});
+        
+        const fileList = contentEl.createEl('ul');
+        this.conflictFiles.forEach(file => {
+            fileList.createEl('li', {text: file.addr});
+        });
+        
+        new Setting(contentEl)
+            .addButton(button => button
+                .setButtonText(t('upload'))
+                .setCta()
+                .onClick(() => {
+                    this.result = 'upload';
+                    this.close();
+                }))
+            .addButton(button => button
+                .setButtonText(t('download'))
+                .setCta()
+                .onClick(() => {
+                    this.result = 'download';
+                    this.close();
+                }))
+            .addButton(button => button
+                .setButtonText(t('skip'))
+                .setCta()
+                .onClick(() => {
+                    this.result = 'skip';
+                    this.close();
+                }));
+    }
+
+    onClose() {
+        const {contentEl} = this;
+        contentEl.empty();
+        this.onSubmit(this.result);
+    }
+}
 
 export class Sync {
     app: any;
@@ -126,7 +186,7 @@ export class Sync {
     async getLocalFiles(include_str: string, exclude_str: string) {
         const include_list = include_str.split(',');
         const exclude_list = exclude_str.split(',');
-        const file_dict = await this.localInfo.fileInfoList;
+        const file_dict = this.localInfo.fileInfoList;
         const fileList = [];
         for (const key in file_dict) {
             const file = file_dict[key];
@@ -159,7 +219,7 @@ export class Sync {
                 if (!include) {
                     continue;
                 }
-                fileList.push({ 'path': file.path, 'mtime': file.mtime, 'md5': file.md5 });
+                fileList.push({ 'path': file.path, 'mtime': file.mtime, 'md5': file.md5, 'lastSyncTime': file.lastSyncTime || 0});
             }
         }
         return fileList;
@@ -242,16 +302,17 @@ export class Sync {
         try {
             const response = await requestWithToken(this.plugin, requestOptions, autoLogin);
             const data = await response.json;
-            console.log('syncAll data', data);
             this.interrupt = false;
             let showinfo = ""
-            let upload_list = data.upload_list;
-            let download_list = data.download_list;
-            let download_success = true;
-            if (upload_list && upload_list.length > 0) {
+            let upload_list = data.upload_list || [];
+            let download_list = data.download_list || [];
+            let conflict_list = data.conflict_list || [];
+            let opt_success = true;
+            
+            if (upload_list.length > 0) {
                 showinfo += t('upload') + ': ' + upload_list.length + ' ' + t('files') + '\n';
             }
-            if (download_list && download_list.length > 0) {
+            if (download_list.length > 0) {
                 showinfo += t('download') + ': ' + download_list.length + ' ' + t('files') + '\n';
             }
             if (data.remove_list && data.remove_list.length > 0) {
@@ -260,6 +321,10 @@ export class Sync {
             if (data.cloud_remove_list && data.cloud_remove_list.length > 0) {
                 showinfo += t('removeServer') + ': ' + data.cloud_remove_list.length + ' ' + t('files') + '\n';
             }
+            if (conflict_list.length > 0) {
+                showinfo += t('conflicts') + ': ' + conflict_list.length + ' ' + t('files') + '\n';
+            }
+            
             if (showinfo == "") {
                 showinfo = t('nothingToDo');
                 this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
@@ -267,10 +332,10 @@ export class Sync {
                 return;
             }
             this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
-            if (upload_list && upload_list.length > 0) {
+            
+            if (upload_list.length > 0) {
                 let updateFiles: TFile[] = [];
                 for (const dic of upload_list) {
-                    console.log('dic', dic);
                     const file = this.app.vault.getAbstractFileByPath(dic['addr']);
                     if (file instanceof TFile) {
                         updateFiles.push(file);
@@ -278,25 +343,86 @@ export class Sync {
                 }
                 await this.uploadFiles(updateFiles);
             }
-            if (download_list && download_list.length > 0) {
-                download_success = await this.downloadFiles(download_list)
+            
+            if (download_list.length > 0) {
+                opt_success = await this.downloadFiles(download_list);
             }
+            
             if (data.remove_list && data.remove_list.length > 0) {
-                await this.removeFiles(data.remove_list)
+                await this.removeFiles(data.remove_list);
             }
-            // wait 1 second to show
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
-            await this.localInfo.update();
-            // lastSyncTime only affects file only in cloud
-            // if file only in cloud, and lastSyncTime is new, remove cloud file
-            // if download not success, maybe accidentally remove cloud file
-            if (download_success && false == this.interrupt) {
-                this.settings.lastSyncTime = new Date().getTime() + 5000; // 5 sec delay
-                this.plugin.saveSettings();
+            
+            if (conflict_list.length > 0 && !this.interrupt) {
+                return new Promise<void>((resolve) => {
+                    const conflictModal = new ConflictModal(this.app, conflict_list, async (result) => {
+                        if (result === 'upload') {
+                            let updateFiles: TFile[] = [];
+                            for (const dic of conflict_list) {
+                                const file = this.app.vault.getAbstractFileByPath(dic.addr);
+                                if (file instanceof TFile) {
+                                    updateFiles.push(file);
+                                }
+                            }
+                            if (updateFiles.length > 0) {
+                                await this.uploadFiles(updateFiles);
+                            }
+                        } else if (result === 'download') {
+                            const downloadResult = await this.downloadFiles(conflict_list);
+                            if (!downloadResult) {
+                                opt_success = false;
+                            }
+                        }                        
+                        this.finishSync(opt_success, upload_list, download_list, conflict_list, result);
+                        resolve();
+                    });
+                    conflictModal.open();
+                });
+            } else {
+                this.finishSync(opt_success, upload_list, download_list);
             }
         } catch (err) {
             this.plugin.showNotice('sync', t('syncFailed') + ': ' + err.status, { timeout: 3000 });
+        }
+    }
+    
+    async finishSync(opt_success: boolean, upload_list: any[], download_list: any[], conflict_list?: any[], conflict_result?: string) {
+        // wait 1 second to show
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
+        await this.localInfo.update();
+        
+        // lastSyncTime only affects file only in cloud
+        // if file only in cloud, and lastSyncTime is new, remove cloud file
+        // if download not success, maybe accidentally remove cloud file
+        if (opt_success && false == this.interrupt) {
+            const newSyncTime = new Date().getTime() + 5000; // 5 sec delay
+            this.settings.lastSyncTime = newSyncTime;
+            this.plugin.saveSettings();            
+            const syncedPaths: string[] = [];
+            
+            upload_list.forEach(item => {
+                if (item.addr && !syncedPaths.includes(item.addr)) {
+                    syncedPaths.push(item.addr);
+                }
+            });
+            
+            download_list.forEach(item => {
+                if (item.addr && !syncedPaths.includes(item.addr)) {
+                    syncedPaths.push(item.addr);
+                }
+            });
+            
+            if (conflict_list && conflict_result && conflict_result !== 'skip') {
+                conflict_list.forEach(item => {
+                    if (item.addr && !syncedPaths.includes(item.addr)) {
+                        syncedPaths.push(item.addr);
+                    }
+                });
+            }
+            
+            if (syncedPaths.length > 0) {
+                this.localInfo.updateFilesSyncTime(syncedPaths, newSyncTime);
+            }
         }
     }
 
@@ -393,6 +519,8 @@ export class Sync {
         if (ret) {
             if (Array.isArray(list) && list.length > 0) {
                 this.plugin.showNotice('temp', t('uploadSuccess'), { timeout: 3000 });
+                const newSyncTime = new Date().getTime() + 5000; // 5 sec delay
+                this.localInfo.updateFilesSyncTime([file.path], newSyncTime);
             } else {
                 this.plugin.showNotice('temp', t('uploadFinished'), { timeout: 3000 });
             }
@@ -403,7 +531,7 @@ export class Sync {
 export class LocalInfo {
     plugin: any;
     app: any;
-    fileInfoList: any;
+    fileInfoList: Record<string, FileInfo>;
     jsonPath: string;
 
     constructor(plugin: any, app: any) {
@@ -434,12 +562,23 @@ export class LocalInfo {
             const data = await vault.readBinary(file);
             const wordArray = WordArray.create(data);
             const md5Hash = MD5(wordArray).toString();
+            const defaultLastSyncTime = this.plugin.settings.lastSyncTime || 0;
+            
+            if (this.fileInfoList[file.path]) {
+                this.fileInfoList[file.path].md5 = md5Hash;
+                this.fileInfoList[file.path].mtime = mtime;                
+                if (!this.fileInfoList[file.path].lastSyncTime) {
+                    this.fileInfoList[file.path].lastSyncTime = defaultLastSyncTime;
+                }
+            } else {
+                this.fileInfoList[file.path] = {
+                    path: file.path,
+                    md5: md5Hash,
+                    mtime: mtime,
+                    lastSyncTime: defaultLastSyncTime
+                };
+            }
 
-            this.fileInfoList[file.path] = {
-                path: file.path,
-                md5: md5Hash,
-                mtime: mtime
-            };
             count += 1;
         }
         for (const key in this.fileInfoList) {
@@ -469,5 +608,15 @@ export class LocalInfo {
             this.fileInfoList = JSON.parse(fileInfoStr);
         }
         await this.update();
+    }
+
+    updateFilesSyncTime(filePaths: string[], lastSyncTime?: number): void {
+        const ltime = lastSyncTime || new Date().getTime();
+        for (const path of filePaths) {
+            if (this.fileInfoList[path]) {
+                this.fileInfoList[path].lastSyncTime = ltime;
+            }
+        }
+        this.save();
     }
 }
