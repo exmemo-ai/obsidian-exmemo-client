@@ -242,6 +242,7 @@ export class Sync {
         try {
             const response = await requestWithToken(this.plugin, requestOptions, autoLogin);
             const data = await response.json;
+            console.log('syncAll data', data);
             this.interrupt = false;
             let showinfo = ""
             let upload_list = data.upload_list;
@@ -269,6 +270,7 @@ export class Sync {
             if (upload_list && upload_list.length > 0) {
                 let updateFiles: TFile[] = [];
                 for (const dic of upload_list) {
+                    console.log('dic', dic);
                     const file = this.app.vault.getAbstractFileByPath(dic['addr']);
                     if (file instanceof TFile) {
                         updateFiles.push(file);
