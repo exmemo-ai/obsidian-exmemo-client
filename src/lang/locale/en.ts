@@ -16,8 +16,6 @@ export default {
   "login": "Login...",
   "loginFailed": "Login failed",
   "loginExpired": "Login expired, please try again later",
-  "search": "Search",
-  "searchFailed": "Search failed",
   'upload': 'Upload',
   'uploadSuccess': 'Upload success',
   'uploadFailed': 'Upload failed',
@@ -35,7 +33,6 @@ export default {
   'syncFinished': 'Sync finished',
   'syncFailed': 'Sync failed',
   'connectFailed': 'Connection failed',
-  'searchKeyword': 'Search keyword',
   'getListQuote': 'Get list of quotes',
   'getListTodo': 'Get list of todo',
   'getListWebToWatch': 'Get list of web to watch',
@@ -68,5 +65,20 @@ export default {
   'conflictDetected': 'Conflict Detected',
   'conflictMessage': 'The following files have changes both locally and on the server. Please choose which version to keep:',
   'skip': 'Skip',
-  'conflicts': 'Conflicts'
+  'conflicts': 'Conflicts',
+  // search
+  "search": "Search",
+  "searchFailed": "Search failed",
+  "searchKeyword": "Search keyword",
+  "localSearch": "Local search",
+  "folder": "Folder",
+  "allFolders": "All folders",
+  "searchResults": "Search results",
+  "noResultsFound": "No results found",
+  "caseSensitive": "Case sensitive",
+  "advancedSearch": "Advanced search",
+  "tagSearch": "Tag search",
+  "fileSearch": "File search",
+  "keywordSearch": "Keyword search",
+  "searchSyntaxTip": "Supports tag:tagname, file:filename"
 }

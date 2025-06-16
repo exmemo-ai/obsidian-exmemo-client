@@ -17,8 +17,6 @@ export default {
     "login": "登录...",
     "loginFailed": "登录失败",
     "loginExpired": "登录过期，请稍候再试",
-    "search": "搜索",
-    "searchFailed": "搜索失败",
     'upload': '上传',
     'uploadSuccess': '上传成功',
     'uploadFailed': '上传失败',
@@ -36,7 +34,6 @@ export default {
     'syncFinished': '同步完成',
     'syncFailed': '同步失败',
     'connectFailed': '连接失败',
-    'searchKeyword': '搜索关键字', 
     'getListQuote': '获取列表：摘录', 
     'getListTodo': '获取列表：待做', 
     'getListWebToWatch': '获取列表：待读', 
@@ -69,5 +66,20 @@ export default {
     'conflictDetected': '检测到冲突',
     'conflictMessage': '以下文件在本地和服务器上都有更改。请选择保留哪个版本：',
     'skip': '跳过',
-    'conflicts': '冲突'
+    'conflicts': '冲突',
+    // search
+    "search": "搜索",
+    "searchFailed": "搜索失败",
+    "searchKeyword": "搜索关键字", 
+    "localSearch": "本地搜索",
+    "folder": "文件夹",
+    "allFolders": "所有文件夹",
+    "searchResults": "搜索结果",
+    "noResultsFound": "未找到结果",
+    "caseSensitive": "区分大小写",
+    "advancedSearch": "高级搜索",
+    "tagSearch": "标签搜索",
+    "fileSearch": "文件搜索",
+    "keywordSearch": "关键字搜索",
+    "searchSyntaxTip": "支持 tag:标签, file:文件名"
 }

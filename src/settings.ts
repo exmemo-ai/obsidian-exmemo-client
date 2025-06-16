@@ -1,6 +1,11 @@
 import { PluginSettingTab, Setting, App } from 'obsidian';
 import { t } from "src/lang/helpers"
 
+export interface SearchParams {
+    count: number;
+    lastUsed: number;
+}
+
 export interface ExMemoSettings {
 	myUsername: string;
 	myPassword: string;
@@ -10,7 +15,9 @@ export interface ExMemoSettings {
 	syncInterval: number;
 	url: string;
 	include: string;
-	exclude: string;	
+	exclude: string;
+	localSearchHistory: Record<string, SearchParams>;
+	advancedSearchVisible: boolean;
 }
 
 export const DEFAULT_SETTINGS: ExMemoSettings = {
@@ -23,6 +30,8 @@ export const DEFAULT_SETTINGS: ExMemoSettings = {
 	url: 'http://localhost:8005',
 	include: '',
 	exclude: '',
+	localSearchHistory: {},
+	advancedSearchVisible: false,
 }
 
 export class ExMemoSettingTab extends PluginSettingTab {

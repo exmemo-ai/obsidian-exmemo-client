@@ -2,6 +2,7 @@ import { Editor, MarkdownView, Plugin, requestUrl, RequestUrlResponse } from 'ob
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
 import { SearchModal } from 'src/search';
+import { LocalSearchModal } from 'src/search_local';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
 
@@ -21,6 +22,13 @@ export default class ExMemoPlugin extends Plugin {
 			name: t('search'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				new SearchModal(this.app, this).open();
+			}
+		});
+		this.addCommand({
+			id: 'search_local',
+			name: t('localSearch'),
+			editorCallback: (editor: Editor, view: MarkdownView) => {
+				new LocalSearchModal(this.app, this).open();
 			}
 		});
 		this.addCommand({
