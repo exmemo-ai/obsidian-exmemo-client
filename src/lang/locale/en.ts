@@ -82,5 +82,8 @@ export default {
   "keywordSearch": "Keyword search",
   "searchSyntaxTip": "Supports tag:tagname, file:filename",
   "clearInput": "Clear input",
-  "remoteSearchResults": "Remote search results"
+  "remoteSearchResults": "Remote search results",
+  "local": "Local",
+  "remote": "Remote",
+  "localOrRemote": "Local/Remote"
 }

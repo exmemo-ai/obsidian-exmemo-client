@@ -83,5 +83,8 @@ export default {
     "keywordSearch": "关键字搜索",
     "searchSyntaxTip": "支持 tag:标签, file:文件名",
     "clearInput": "清除输入",
-    "remoteSearchResults": "远程搜索结果"
+    "remoteSearchResults": "远程搜索结果",
+    "local": "本地",
+    "remote": "远程",
+    "localOrRemote": "本地/远程",
 }

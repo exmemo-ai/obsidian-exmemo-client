@@ -1,4 +1,4 @@
-import { App, Editor, TFolder, View } from 'obsidian';
+import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult, highlightTextInElement } from './search_local_data';
 import { searchRemoteData, SearchResult } from './search_remote_data';
@@ -21,6 +21,9 @@ export class SearchUI {
     caseSensitiveChecked: boolean;
     isRemoteSearch: boolean;
     typeSelectEl: HTMLSelectElement;
+    typeContainer: HTMLElement;
+    searchBtnControlsEl: HTMLElement;
+    folderContainer: HTMLElement;
 
     protected searchInput: HTMLInputElement;
     protected resultsList: HTMLElement;
@@ -44,26 +47,28 @@ export class SearchUI {
     protected initializeUI(containerEl: HTMLElement) {
         const searchRowEl = containerEl.createEl('div', { cls: 'search-row' });
         
-        // later adjust
-        const searchModeButton = searchRowEl.createEl('button', {
+        const inputContainerEl = searchRowEl.createEl('div', { cls: 'search-input-container-ex' });
+        const inputWrapperEl = inputContainerEl.createEl('div', { cls: 'input-wrapper' });
+
+        this.keywordInputEl = inputWrapperEl.createEl('input', {
+            attr: { placeholder: t('searchKeyword') + ' (' + t('searchSyntaxTip') + ')' },
+            cls: 'search-input'
+        });
+        this.keywordInputEl.type = 'text';
+
+        const modeControlsEl = inputWrapperEl.createEl('div', { cls: 'mode-controls' });
+        const searchModeButton = modeControlsEl.createEl('button', {
             cls: 'search-mode-button',
-            attr: { title: t('toggleSearchMode') || 'Toggle search mode' }
+            attr: { title: t('localOrRemote') || 'Local/Remote' }
         });
         searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
         
         searchModeButton.addEventListener('click', () => {
             this.isRemoteSearch = !this.isRemoteSearch;
             searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
-            this.executeSearch();
+            this.setType();
+            //this.executeSearch();
         });
-        
-        const inputContainerEl = searchRowEl.createEl('div', { cls: 'search-input-container' });
-        const inputWrapperEl = inputContainerEl.createEl('div', { cls: 'input-wrapper' });
-        this.keywordInputEl = inputWrapperEl.createEl('input', {
-            attr: { placeholder: t('searchKeyword') + ' (' + t('searchSyntaxTip') + ')' },
-            cls: 'search-input'
-        });
-        this.keywordInputEl.type = 'text';
 
         const btnControlsEl = inputWrapperEl.createEl('div', { cls: 'btn-controls' });
         const clearButtonEl = btnControlsEl.createEl('button', {
@@ -99,11 +104,13 @@ export class SearchUI {
             if (this.searchDebounceTimer) {
                 clearTimeout(this.searchDebounceTimer);
             }
-            this.searchDebounceTimer = window.setTimeout(async () => {
-                await this.executeSearch();
-            }, 300);
+            if (!this.isRemoteSearch) {
+                this.searchDebounceTimer = window.setTimeout(async () => {
+                    await this.executeSearch();
+                }, 300);
 
-            clearButtonEl.style.display = this.keywordInputEl.value ? 'block' : 'none';
+                clearButtonEl.style.display = this.keywordInputEl.value ? 'block' : 'none';
+            }
         });
 
         clearButtonEl.addEventListener('click', () => {
@@ -124,20 +131,15 @@ export class SearchUI {
             }
         });
         
-        /*
-        const searchButtonEl = searchRowEl.createEl('button', {
+        this.searchBtnControlsEl = searchRowEl.createEl('button', {
             cls: 'search-button',
             attr: { title: t('search') }
         });
-
-        const searchIconEl = searchButtonEl.createEl('div', { cls: 'search-icon' });
-
+        const searchIconEl = this.searchBtnControlsEl.createEl('div', { cls: 'search-icon' });
         searchIconEl.createEl('div', { cls: 'search-icon-handle' });
-
-        searchButtonEl.addEventListener('click', async () => {
+        this.searchBtnControlsEl.addEventListener('click', async () => {
             await this.executeSearch();
         });
-        */
 
         const advancedToggleEl = searchRowEl.createEl('button', {
             cls: 'advanced-toggle',
@@ -148,12 +150,12 @@ export class SearchUI {
         this.advancedSearchEl = containerEl.createEl('div', { cls: 'advanced-search-panel' });
         this.advancedSearchEl.style.display = 'none';
 
-        const folderContainer = this.advancedSearchEl.createEl('div', { cls: 'folder-container' });
+        this.folderContainer = this.advancedSearchEl.createEl('div', { cls: 'folder-container' });
 
-        const folderLabelEl = folderContainer.createEl('label', { cls: 'search-label' });
+        const folderLabelEl = this.folderContainer.createEl('label', { cls: 'search-label' });
         folderLabelEl.textContent = t('folder') + ":";
 
-        this.folderSelectEl = folderContainer.createEl('select', { cls: 'folder-select' });
+        this.folderSelectEl = this.folderContainer.createEl('select', { cls: 'folder-select' });
 
         const rootOption = this.folderSelectEl.createEl('option');
         rootOption.value = '';
@@ -161,25 +163,25 @@ export class SearchUI {
 
         this.populateFolderSelect();
 
-        if (this.isRemoteSearch) { // later
-            const typeContainer = this.advancedSearchEl.createEl('div', { cls: 'type-container' });
-            const typeLabel = typeContainer.createEl('label', { cls: 'search-label' });
-            typeLabel.textContent = t('etype') + ":";
+        this.typeContainer = this.advancedSearchEl.createEl('div', { cls: 'type-container' });
+        const typeLabel = this.typeContainer.createEl('label', { cls: 'search-label' });
+        typeLabel.textContent = t('etype') + ":";
 
-            this.typeSelectEl = typeContainer.createEl('select', { cls: 'type-select' });
-            
-            const noteOption = this.typeSelectEl.createEl('option');
-            noteOption.value = 'note';
-            noteOption.textContent = t('note');
-            
-            const webOption = this.typeSelectEl.createEl('option');
-            webOption.value = 'web';
-            webOption.textContent = t('web');
-            
-            const recordOption = this.typeSelectEl.createEl('option');
-            recordOption.value = 'record';
-            recordOption.textContent = t('record');
-        }
+        this.typeSelectEl = this.typeContainer.createEl('select', { cls: 'type-select' });
+        
+        const noteOption = this.typeSelectEl.createEl('option');
+        noteOption.value = 'note';
+        noteOption.textContent = t('note');
+        
+        const webOption = this.typeSelectEl.createEl('option');
+        webOption.value = 'web';
+        webOption.textContent = t('web');
+        
+        const recordOption = this.typeSelectEl.createEl('option');
+        recordOption.value = 'record';
+        recordOption.textContent = t('record');
+
+        this.setType();
 
         const dateRangeContainer = this.advancedSearchEl.createEl('div', { cls: 'date-range-container' });
 
@@ -208,6 +210,18 @@ export class SearchUI {
             this.plugin.settings.advancedSearchVisible = this.advancedSearchVisible;
             this.plugin.saveSettings();
         });
+    }
+
+    setType() {
+        if (this.typeContainer) {
+            this.typeContainer.style.display = this.isRemoteSearch ? 'block' : 'none';
+        }
+        if (this.searchBtnControlsEl) {
+            this.searchBtnControlsEl.style.display = this.isRemoteSearch ? 'block' : 'none';
+        }
+        if (this.folderContainer) {
+            this.folderContainer.style.display = this.isRemoteSearch ? 'none' : 'block';
+        }
     }
 
     async executeSearch() {
@@ -596,5 +610,40 @@ export class SearchUI {
                 element.textContent = text;
             }
         }
+    }
+}
+
+export const LOCAL_SEARCH_VIEW_TYPE = 'local-search-view';
+
+export class LocalSearchView extends ItemView {
+    plugin: any;
+    app: App;
+
+    constructor(leaf: WorkspaceLeaf, app: App, plugin: any) {
+        super(leaf);
+        this.plugin = plugin;
+        this.app = app;
+    }
+
+    getViewType() {
+        return LOCAL_SEARCH_VIEW_TYPE;
+    }
+
+    getDisplayText() {
+        return t('localSearch') || 'Local Search';
+    }
+
+    getIcon() {
+        return 'search-icon';
+    }
+
+    async onOpen() {
+        const container = this.containerEl.children[1] as HTMLElement;
+        container.empty();
+        container.style.padding = '0'; // later move to style.css
+        console.log('LocalSearchView onOpen', container);
+        const searchEl = container.createEl('div');
+        searchEl.addClass('local-search-content-wrapper');
+        new SearchUI(this.app, this.plugin, searchEl, false);
     }
 }

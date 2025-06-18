@@ -5,7 +5,7 @@ import { SearchModal } from 'src/search_remote';
 import { LocalSearchModal } from 'src/search_local';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
-import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search_local_view';
+import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search_ui';
 import { registerCustomIcons } from 'src/custom_icons';
 
 export default class ExMemoPlugin extends Plugin {
