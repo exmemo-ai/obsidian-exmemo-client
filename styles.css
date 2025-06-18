@@ -33,16 +33,28 @@ search
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
+    max-height: 90vh;
     padding-top: 10vh;
 }
 
 .local-search-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     overflow: hidden;
 }
 
+.local-search-area {
+    flex-shrink: 0;
+    padding-bottom: 8px;
+}
+
 .search-results-container {
-    overflow: auto;
-    max-height: 70vh;
+    flex: 1;
+    position: relative;
+    overflow-y: auto;
+    min-height: 0;
+    padding-left: 12px;
     font-size: 0.9em;
 }
 
@@ -50,7 +62,7 @@ search
     display: flex;
     align-items: center;
     margin-bottom: 8px;
-    gap: 8px;
+    gap: 2px;
 }
 
 .search-input-container {
@@ -61,26 +73,54 @@ search
 }
 
 .input-wrapper {
-    flex: 1;
     position: relative;
     display: flex;
     align-items: center;
-}
-
-.search-input {
-    flex: 1;
-    padding-right: 30px;
     width: 100%;
 }
 
-.case-sensitive-button {
+.btn-controls {
     position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 1px;
     right: 5px;
-    background: none;
-    border: none;
-    padding: 2px 5px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.search-input {
+    width: 100%;
+    padding-right: 60px;
+}
+
+.clear-button, .case-sensitive-button {
+    background: none !important;
+    border: none !important;
+    padding: 2px 5px !important;
     cursor: pointer;
     z-index: 2;
+    box-shadow: none !important;
+    background-color: transparent !important;
+    min-height: unset !important;
+    min-width: unset !important;
+    color: var(--text-muted);
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    outline: none !important;
+}
+
+.clear-button:hover, .case-sensitive-button:hover {
+    background-color: transparent !important;
+    color: var(--text-accent);
+}
+
+.clear-button:active, .case-sensitive-button:active,
+.clear-button:focus, .case-sensitive-button:focus {
+    box-shadow: none !important;
+    outline: none !important;
+    border: none !important;
 }
 
 .case-sensitive-inactive {
@@ -193,13 +233,21 @@ search
     width: 100%;
 }
 
-.local-search-title {
+.local-search-title-short {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
     max-width: 50%;
+}
+
+.local-search-title-long {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 50%;
 }
 
 .local-search-path {
