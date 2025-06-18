@@ -1,6 +1,7 @@
-import { App, TFolder, View, Editor } from 'obsidian';
+import { App, Editor, TFolder, View } from 'obsidian';
 import { t } from "src/lang/helpers";
-import { searchLocalData, highlightTextInElement, LocalSearchResult } from 'src/search_local_data';
+import { searchLocalData, LocalSearchResult, highlightTextInElement } from './search_local_data';
+import { searchRemoteData, SearchResult } from './search_remote_data';
 
 export class SearchUI {
     app: App;
@@ -18,6 +19,8 @@ export class SearchUI {
     searchDebounceTimer: number | null;
     showPath: boolean;
     caseSensitiveChecked: boolean;
+    isRemoteSearch: boolean;
+    typeSelectEl: HTMLSelectElement;
 
     protected searchInput: HTMLInputElement;
     protected resultsList: HTMLElement;
@@ -27,6 +30,7 @@ export class SearchUI {
         this.plugin = plugin;
         this.showPath = showPath;
         this.caseSensitiveChecked = false;
+        this.isRemoteSearch = false;
 
         containerEl.addClass('local-search-content-wrapper');
 
@@ -39,6 +43,20 @@ export class SearchUI {
 
     protected initializeUI(containerEl: HTMLElement) {
         const searchRowEl = containerEl.createEl('div', { cls: 'search-row' });
+        
+        // later adjust
+        const searchModeButton = searchRowEl.createEl('button', {
+            cls: 'search-mode-button',
+            attr: { title: t('toggleSearchMode') || 'Toggle search mode' }
+        });
+        searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
+        
+        searchModeButton.addEventListener('click', () => {
+            this.isRemoteSearch = !this.isRemoteSearch;
+            searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
+            this.executeSearch();
+        });
+        
         const inputContainerEl = searchRowEl.createEl('div', { cls: 'search-input-container' });
         const inputWrapperEl = inputContainerEl.createEl('div', { cls: 'input-wrapper' });
         this.keywordInputEl = inputWrapperEl.createEl('input', {
@@ -143,6 +161,26 @@ export class SearchUI {
 
         this.populateFolderSelect();
 
+        if (this.isRemoteSearch) { // later
+            const typeContainer = this.advancedSearchEl.createEl('div', { cls: 'type-container' });
+            const typeLabel = typeContainer.createEl('label', { cls: 'search-label' });
+            typeLabel.textContent = t('etype') + ":";
+
+            this.typeSelectEl = typeContainer.createEl('select', { cls: 'type-select' });
+            
+            const noteOption = this.typeSelectEl.createEl('option');
+            noteOption.value = 'note';
+            noteOption.textContent = t('note');
+            
+            const webOption = this.typeSelectEl.createEl('option');
+            webOption.value = 'web';
+            webOption.textContent = t('web');
+            
+            const recordOption = this.typeSelectEl.createEl('option');
+            recordOption.value = 'record';
+            recordOption.textContent = t('record');
+        }
+
         const dateRangeContainer = this.advancedSearchEl.createEl('div', { cls: 'date-range-container' });
 
         const dateLabel = dateRangeContainer.createEl('label', { cls: 'search-label' });
@@ -184,8 +222,34 @@ export class SearchUI {
         this.saveSearchToHistory(keyword);
         this.updateHistoryKeywords();
 
-        const results = await searchLocalData(this.app, keyword, startDate, endDate, selectedFolder, caseSensitive, 101);
-        this.displayResults(results);
+        if (this.isRemoteSearch) {
+            const selectedType = this.typeSelectEl ? this.typeSelectEl.value : '';
+            const results = await searchRemoteData(
+                this.plugin,
+                keyword,
+                startDate,
+                endDate,
+                selectedFolder,
+                caseSensitive,
+                101,
+                '', // ctype
+                selectedType, // etype
+                '' // status
+            );
+            console.log('Remote search results:', results);
+            this.displayRemoteResults(results);
+        } else {
+            const results = await searchLocalData(
+                this.app,
+                keyword,
+                startDate,
+                endDate,
+                selectedFolder,
+                caseSensitive,
+                101
+            );
+            this.displayLocalResults(results);
+        }
     }
 
     navigateHistory(direction: 'up' | 'down') {
@@ -279,7 +343,7 @@ export class SearchUI {
         }
     }
 
-    protected displayResults(results: LocalSearchResult[]) {
+    protected displayLocalResults(results: LocalSearchResult[]) {
         this.resultsContainerEl.empty();
 
         const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
@@ -416,6 +480,83 @@ export class SearchUI {
                 contentEl.textContent = result.content || '';
             }
         });
+    }
+
+    protected displayRemoteResults(results: SearchResult[]) {
+        this.resultsContainerEl.empty();
+
+        const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
+
+        const titleEl = headerEl.createEl('div', { cls: 'search-results-title' });
+        titleEl.textContent = t('remoteSearchResults') || 'Remote Search Results';
+
+        if (results.length > 0) {
+            const displayCount = results.length > 100 ? '100+' : results.length.toString();
+            headerEl.createEl('span', { cls: 'results-count' }).textContent = t('total') + ': ' + displayCount;
+        }
+
+        if (results.length === 0) {
+            this.resultsContainerEl.createEl('p').textContent = t('noResultsFound');
+            return;
+        }
+
+        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'local-search-results' });
+
+        const displayResults = results.length > 100 ? results.slice(0, 100) : results;
+
+        displayResults.forEach(result => {
+            const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
+
+            const titleRowEl = resultItemEl.createEl('div', { cls: 'local-search-title-row' });
+            const titleEl = titleRowEl.createEl('div', { cls: 'remote-search-title' });
+            titleEl.textContent = result.title;
+
+            const timeEl = titleRowEl.createEl('div', { cls: 'remote-search-time' });
+            timeEl.textContent = result.created_time;
+
+            if (result.addr) {
+                const pathEl = resultItemEl.createEl('div', { cls: 'remote-search-path' });
+                pathEl.textContent = result.addr;
+            }
+
+            if (result.ctype || result.etype) {
+                const typeEl = resultItemEl.createEl('div', { cls: 'local-search-type' });
+                typeEl.textContent = `${result.ctype || ''} ${result.etype || ''}`.trim();
+            }
+
+            if (result.raw) {
+                const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
+                contentEl.textContent = result.raw.substring(0, 200) + (result.raw.length > 200 ? '...' : '');
+
+                if (this.keywordInputEl.value) {
+                    this.highlightMatchedContent(contentEl, this.keywordInputEl.value);
+                }
+            }
+
+            if (result.etype === 'web' && result.addr) {
+                resultItemEl.addEventListener('click', () => {
+                    window.open(result.addr, '_blank');
+                });
+                resultItemEl.addClass('clickable');
+            }
+        });
+    }
+
+    private highlightMatchedContent(element: HTMLElement, keyword: string) {
+        if (!keyword) return;
+        const content = element.textContent || '';
+        const keywordIndex = content.toLowerCase().indexOf(keyword.toLowerCase());
+        if (keywordIndex === -1) return;
+
+        element.empty();
+        if (keywordIndex > 0) {
+            element.appendText(content.substring(0, keywordIndex));
+        }
+        const highlightSpan = element.createEl('span', { cls: 'search-highlight' });
+        highlightSpan.textContent = content.substring(keywordIndex, keywordIndex + keyword.length);
+        if (keywordIndex + keyword.length < content.length) {
+            element.appendText(content.substring(keywordIndex + keyword.length));
+        }
     }
 
     applyHighlighting(element: HTMLElement, text: string, searchType: 'tag' | 'file' | 'keyword',

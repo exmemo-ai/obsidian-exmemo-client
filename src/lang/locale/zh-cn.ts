@@ -81,5 +81,7 @@ export default {
     "tagSearch": "标签搜索",
     "fileSearch": "文件搜索",
     "keywordSearch": "关键字搜索",
-    "searchSyntaxTip": "支持 tag:标签, file:文件名"
+    "searchSyntaxTip": "支持 tag:标签, file:文件名",
+    "clearInput": "清除输入",
+    "remoteSearchResults": "远程搜索结果"
 }

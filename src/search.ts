@@ -1,98 +1,24 @@
-import { App, Modal, requestUrl } from 'obsidian';
-import { MarkdownView, Notice } from 'obsidian';
+import { App, Modal } from 'obsidian';
 import { t } from "src/lang/helpers"
-import { requestWithToken } from "src/utils";
+import { searchRemoteData, writeSearchResultsToEditor } from "src/search_remote_data";
 
 export async function getDataList(plugin: any, ctype: string, etype: string,
     status: string, keyword: string, maxCount = '', startDate = '', endDate = '', auto_login = true) {
-
-    const url = new URL(plugin.settings.url + '/api/entry/data/');
-    if (ctype && ctype != '') {
-        url.searchParams.append('ctype', ctype);
-    }
-    if (etype && etype != '') {
-        url.searchParams.append('etype', etype);
-    }
-    if (status && status != '') {
-        url.searchParams.append('status', status);
-    }
-    if (startDate && startDate != '') {
-        url.searchParams.append('start_date', startDate);
-    }
-    if (endDate && endDate != '') {
-        url.searchParams.append('end_date', endDate);
-    }
-    if (keyword && keyword != '') {
-        url.searchParams.append('keyword', keyword);
-        new Notice(t('search') + ': ' + keyword);
-    }
-
-    url.searchParams.append('max_count', maxCount);
-
-    const requestOptions = {
-        url: url.toString(),
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Token ' + plugin.settings.myToken
-        }
-    };
-
-    try {
-        const response = await requestWithToken(plugin, requestOptions, auto_login);
-        const data = await response.json;
-        if (data.results) {
-            const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
-            editor.replaceSelection('\n')
-            editor.replaceSelection(t('total') + ":" + data.results.length + '\n\n');
-            let desc = '';
-            for (let i = 0; i < data.results.length; i++) {
-                if (data.results[i].etype == 'web') {
-                    desc = '* ' + JSON.stringify(data.results[i].title) + '\n'
-                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                    desc = desc + '  [' + JSON.stringify(data.results[i].title) + "](" + data.results[i].addr + ")\n\n";
-                    editor.replaceSelection(desc);
-                } else if (data.results[i].etype == 'record') {
-                    let content = data.results[i].raw.replace(/[\r\n]+/g, '\n');
-                    desc = '* ' + JSON.stringify(data.results[i].title) + "\n"
-                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                    desc = desc + "  " + content + "\n\n"
-                    editor.replaceSelection(desc);
-                } else if (data.results[i].etype == 'note') {
-                    let addr = data.results[i].addr;
-                    let path = addr.split('/');
-                    let vault_name = path[0];
-                    let rel_path = path.slice(1).join('/');
-                    let current_vault = plugin.app.vault.getName()
-                    if (current_vault == vault_name) {
-                        desc = '* [' + data.results[i].title + '](' + rel_path + ')\n'
-                    } else {
-                        desc = '* ' + data.results[i].title + ': ' + addr + '\n'
-                    }
-                    desc = desc + '  ' + data.results[i].created_time + " " + data.results[i].ctype + "\n";
-                    let content = data.results[i].raw
-                    if (content) {
-                        content = content.replace(/[\r\n]+/g, '\n');
-                        let content_lines = content.split('\n');
-                        for (let j = 0; j < content_lines.length; j++) {
-                            if (content_lines[j].indexOf(keyword) != -1) {
-                                let line = content_lines[j].replace(keyword, '**' + keyword + '**');
-                                desc = desc + line + '\n';
-                                break
-                            }
-                        }
-                    }
-                    if (data.results[i].content) {
-                        data.results[i].content = data.results[i].content.replace(/[\r\n]+/g, '\n');
-                        desc = desc + data.results[i].content + '\n';
-                    }
-                    editor.replaceSelection(desc);
-                }
-            }
-        }
-    } catch (err) {
-        plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
-        console.error(err);
+    const data = await searchRemoteData(
+        plugin, 
+        keyword,
+        startDate,
+        endDate,
+        '',
+        false,
+        parseInt(maxCount) || 100,
+        ctype,
+        etype,
+        status,
+        auto_login
+    );
+    if (data) {
+        await writeSearchResultsToEditor(plugin, data, keyword);
     }
 }
 

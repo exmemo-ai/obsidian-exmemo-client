@@ -80,5 +80,7 @@ export default {
   "tagSearch": "Tag search",
   "fileSearch": "File search",
   "keywordSearch": "Keyword search",
-  "searchSyntaxTip": "Supports tag:tagname, file:filename"
+  "searchSyntaxTip": "Supports tag:tagname, file:filename",
+  "clearInput": "Clear input",
+  "remoteSearchResults": "Remote search results"
 }
