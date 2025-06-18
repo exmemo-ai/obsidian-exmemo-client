@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, App } from 'obsidian';
 import { t } from "src/lang/helpers";
-import { SearchUI } from './search_local_ui';
+import { SearchUI } from './search_ui';
 
 export const LOCAL_SEARCH_VIEW_TYPE = 'local-search-view';
 

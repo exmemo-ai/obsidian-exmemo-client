@@ -1,5 +1,5 @@
 import { App, Modal } from 'obsidian';
-import { SearchUI } from './search_local_ui';
+import { SearchUI } from './search_ui';
 
 export class LocalSearchModal extends Modal {
     plugin: any;
