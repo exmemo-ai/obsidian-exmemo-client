@@ -1,7 +1,7 @@
 import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
-import { SearchModal } from 'src/search';
+import { SearchModal } from 'src/search_remote';
 import { LocalSearchModal } from 'src/search_local';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
