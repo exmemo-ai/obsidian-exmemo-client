@@ -1,4 +1,5 @@
 import { App, TFile } from 'obsidian';
+import { parseKeywords, extractSnippet, CONTENT_LIMIT } from 'src/search_data';
 
 export interface LocalSearchResult {
     title: string;
@@ -45,15 +46,7 @@ export async function searchLocalData(
     // Process keywords
     let keywordArray: string[] = [];
     if (searchType === 'keyword') {
-        // Match phrases in quotes and words outside quotes
-        const regex = /"([^"]+)"|(\S+)/g;
-        let match;
-        while ((match = regex.exec(searchValue)) !== null) {
-            const term = match[1] || match[2];
-            if (term && term.trim()) {
-                keywordArray.push(term.trim());
-            }
-        }
+        keywordArray = parseKeywords(searchValue);
     } else if (searchType === 'tag') {
         const tagTerms = searchValue.split(/\s+/).filter(term => term.length > 0);
         for (const term of tagTerms) {
@@ -136,7 +129,7 @@ export async function searchLocalData(
             // Extract appropriate snippet
             let snippet = "";
             if (searchType === 'tag' || searchType === 'file') {
-                snippet = content.substring(0, 100) + (content.length > 100 ? "..." : "");
+                snippet = content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : "");
             } else {
                 snippet = extractSnippet(content, keywordArray, caseSensitive);
             }
@@ -183,7 +176,7 @@ export async function searchLocalData(
                 createdTime: createdTime,
                 addr: file.path,
                 etype: 'note',
-                content: content.substring(0, 100) + (content.length > 100 ? "..." : ""),
+                content: content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : ""),
                 isRemote: false,
                 // others
                 tags: extractTags(content),
@@ -259,104 +252,3 @@ export function extractTags(content: string): string[] {
     return [...new Set([...tags, ...matches])];
 }
 
-export function extractSnippet(content: string, keywords: string[], caseSensitive: boolean = false): string {
-    if (!keywords || keywords.length === 0) return content.substring(0, 50) + (content.length > 50 ? "..." : "");
-    
-    let contentToSearch = caseSensitive ? content : content.toLowerCase();
-    
-    // First try to find consecutive keywords match
-    if (keywords.length > 1) {
-        let bestConsecutiveMatchIndex = -1;
-        
-        for (let i = 0; i < keywords.length - 1; i++) {
-            const prevKw = keywords[i];
-            const nextKw = keywords[i + 1];
-            const prevKwToSearch = caseSensitive ? prevKw.replace(/\s+/g, '') : prevKw.toLowerCase().replace(/\s+/g, '');
-            const nextKwToSearch = caseSensitive ? nextKw.replace(/\s+/g, '') : nextKw.toLowerCase().replace(/\s+/g, '');
-            
-            const consecutiveRegex = new RegExp(`${prevKwToSearch}\\s*${nextKwToSearch}|${prevKwToSearch}${nextKwToSearch}`, 'g');
-            const match = consecutiveRegex.exec(contentToSearch);
-            
-            if (match) {
-                bestConsecutiveMatchIndex = match.index;
-                break;
-            }
-        }
-        
-        // If we found a consecutive match, use that position
-        if (bestConsecutiveMatchIndex !== -1) {
-            const start = Math.max(0, bestConsecutiveMatchIndex - 25);
-            const matchLength = Math.min(40, keywords.join(' ').length); // Estimate match length
-            const end = Math.min(content.length, bestConsecutiveMatchIndex + matchLength + 25);
-            let snippet = content.substring(start, end);
-            
-            if (start > 0) snippet = "..." + snippet;
-            if (end < content.length) snippet = snippet + "...";
-            
-            return snippet;
-        }
-    }
-    
-    // If no consecutive match found, fall back to first keyword
-    const keywordToSearch = caseSensitive ? keywords[0] : keywords[0].toLowerCase();
-    
-    const index = contentToSearch.indexOf(keywordToSearch);
-    if (index === -1) return "";
-    
-    const start = Math.max(0, index - 25);
-    const end = Math.min(content.length, index + keywords[0].length + 25);
-    let snippet = content.substring(start, end);
-    
-    if (start > 0) snippet = "..." + snippet;
-    if (end < content.length) snippet = snippet + "...";
-    
-    return snippet;
-}
-
-export function highlightTextInElement(element: HTMLElement, keyword: string, caseSensitive: boolean) {
-    const textNodes: Text[] = [];
-    const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
-    
-    let node;
-    while (node = walk.nextNode()) {
-        textNodes.push(node as Text);
-    }
-    
-    for (const textNode of textNodes) {
-        const text = textNode.nodeValue || "";
-        const parent = textNode.parentNode;
-        
-        if (!parent || text.trim() === "") continue;
-        
-        const searchText = caseSensitive ? text : text.toLowerCase();
-        const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
-        
-        let lastIndex = 0;
-        let index = searchText.indexOf(searchKeyword, lastIndex);
-        
-        if (index === -1) continue;
-        
-        const fragment = document.createDocumentFragment();
-        
-        while (index !== -1) {
-            if (index > lastIndex) {
-                fragment.appendChild(document.createTextNode(text.substring(lastIndex, index)));
-            }
-            
-            const highlightSpan = document.createElement('span');
-            highlightSpan.style.fontWeight = 'bold';
-            highlightSpan.style.color = 'var(--text-accent)';
-            highlightSpan.textContent = text.substring(index, index + keyword.length);
-            fragment.appendChild(highlightSpan);
-            
-            lastIndex = index + keyword.length;
-            index = searchText.indexOf(searchKeyword, lastIndex);
-        }
-        
-        if (lastIndex < text.length) {
-            fragment.appendChild(document.createTextNode(text.substring(lastIndex)));
-        }
-        
-        parent.replaceChild(fragment, textNode);
-    }
-}

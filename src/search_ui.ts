@@ -1,7 +1,9 @@
 import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View } from 'obsidian';
 import { t } from "src/lang/helpers";
-import { searchLocalData, LocalSearchResult, highlightTextInElement } from './search_local_data';
+import { searchLocalData, LocalSearchResult } from './search_local_data';
 import { searchRemoteData, RemoteSearchResult } from './search_remote_data';
+import { highlightElement } from './search_result_highlight';
+import { parseKeywords } from './search_data';
 
 export class SearchUI {
     app: App;
@@ -70,6 +72,7 @@ export class SearchUI {
             this.plugin.saveSettings();
             searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
             this.setType();
+            this.executeSearch();
         });
 
         const btnControlsEl = inputWrapperEl.createEl('div', { cls: 'btn-controls' });
@@ -118,7 +121,7 @@ export class SearchUI {
         clearButtonEl.addEventListener('click', () => {
             this.keywordInputEl.value = '';
             clearButtonEl.style.display = 'none';
-            this.resultsContainerEl.empty();
+            this.executeSearch();
         });        
 
         caseSensitiveButtonEl.addEventListener('click', () => {
@@ -462,8 +465,9 @@ export class SearchUI {
         }
 
         const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'local-search-results' });
-
         const displayResults = results.length > 100 ? results.slice(0, 100) : results;
+        const keywordInput = this.keywordInputEl.value;
+        const caseSensitive = this.caseSensitiveChecked;
 
         displayResults.forEach(result => {
             const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
@@ -492,9 +496,6 @@ export class SearchUI {
             const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
 
             if (this.keywordInputEl.value) {
-                const keywordInput = this.keywordInputEl.value;
-                const caseSensitive = this.caseSensitiveChecked;
-
                 let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
                 let searchValue = keywordInput;
 
@@ -508,24 +509,17 @@ export class SearchUI {
 
                 let keywordArray: string[] = [];
                 if (searchType === 'keyword') {
-                    const regex = /"([^"]+)"|(\S+)/g;
-                    let match;
-                    while ((match = regex.exec(searchValue)) !== null) {
-                        const term = match[1] || match[2];
-                        if (term && term.trim()) {
-                            keywordArray.push(term.trim());
-                        }
-                    }
+                    keywordArray = parseKeywords(searchValue);
                 } else {
                     keywordArray = [searchValue];
                 }
 
                 titleEl.textContent = result.title;
-                this.applyHighlighting(titleEl, result.title, searchType, keywordArray, searchValue, caseSensitive);
+                highlightElement(titleEl, keywordArray, caseSensitive);
 
                 if (result.content) {
                     contentEl.textContent = result.content;
-                    this.applyHighlighting(contentEl, result.content, searchType, keywordArray, searchValue, caseSensitive);
+                    highlightElement(contentEl, keywordArray, caseSensitive);
                 }
             } else {
                 titleEl.textContent = result.title;
@@ -553,8 +547,8 @@ export class SearchUI {
         }
 
         const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'local-search-results' });
-
         const displayResults = results.length > 100 ? results.slice(0, 100) : results;
+        const caseSensitive = this.caseSensitiveChecked;
 
         displayResults.forEach(result => {
             const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
@@ -581,80 +575,15 @@ export class SearchUI {
             if (result.content) {
                 const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
                 contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
-
                 if (this.keywordInputEl.value) {
-                    this.highlightMatchedContent(contentEl, this.keywordInputEl.value);
+                    highlightElement(contentEl, this.keywordInputEl.value, caseSensitive);
                 }
             }
-
-            /*
-            if (result.etype === 'web' && result.addr) {
-                resultItemEl.addEventListener('click', () => {
-                    window.open(result.addr, '_blank');
-                });
-                resultItemEl.addClass('clickable');
-            }*/
             resultItemEl.addEventListener('click', async () => {
                 await this.openResult(result);
             });
             resultItemEl.addClass('clickable');
         });
-    }
-
-    private highlightMatchedContent(element: HTMLElement, keyword: string) {
-        if (!keyword) return;
-        const content = element.textContent || '';
-        const keywordIndex = content.toLowerCase().indexOf(keyword.toLowerCase());
-        if (keywordIndex === -1) return;
-
-        element.empty();
-        if (keywordIndex > 0) {
-            element.appendText(content.substring(0, keywordIndex));
-        }
-        const highlightSpan = element.createEl('span', { cls: 'search-highlight' });
-        highlightSpan.textContent = content.substring(keywordIndex, keywordIndex + keyword.length);
-        if (keywordIndex + keyword.length < content.length) {
-            element.appendText(content.substring(keywordIndex + keyword.length));
-        }
-    }
-
-    applyHighlighting(element: HTMLElement, text: string, searchType: 'tag' | 'file' | 'keyword',
-        keywordArray: string[], searchValue: string, caseSensitive: boolean) {
-        element.empty();
-
-        if (searchType === 'keyword' && keywordArray.length > 0) {
-            element.textContent = text;
-            keywordArray.forEach(keyword => {
-                highlightTextInElement(element, keyword, caseSensitive);
-            });
-        } else if (searchValue) {
-            let elementText = text;
-            let keywordText = searchValue;
-
-            if (!caseSensitive) {
-                elementText = elementText.toLowerCase();
-                keywordText = keywordText.toLowerCase();
-            }
-
-            const keywordIndex = elementText.indexOf(keywordText);
-
-            if (keywordIndex >= 0) {
-                if (keywordIndex > 0) {
-                    element.createSpan({ text: text.substring(0, keywordIndex) });
-                }
-
-                element.createSpan({
-                    text: text.substring(keywordIndex, keywordIndex + searchValue.length),
-                    cls: 'keyword-highlight'
-                });
-
-                if (keywordIndex + searchValue.length < text.length) {
-                    element.createSpan({ text: text.substring(keywordIndex + searchValue.length) });
-                }
-            } else {
-                element.textContent = text;
-            }
-        }
     }
 }
 

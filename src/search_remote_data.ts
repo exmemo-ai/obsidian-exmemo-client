@@ -1,6 +1,7 @@
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import { t } from "src/lang/helpers"
 import { requestWithToken } from "src/utils";
+import { parseKeywords, extractSnippet } from "src/search_data";
 
 export interface RemoteSearchResult {
     title: string;
@@ -65,12 +66,13 @@ export async function searchRemoteData(
     try {
         const response = await requestWithToken(plugin, requestOptions, auto_login);
         const rawData = await response.json;
+        const keywords = parseKeywords(keyword);
         return rawData.map((item: any) => ({
             title: item.title,
             created_time: item.created_time,
             etype: item.etype,
             addr: item.addr,
-            content: item.content ? item.content : item.raw,
+            content: extractSnippet(item.content ? item.content : item.raw, keywords, caseSensitive),
             isRemote: true,
             // others
             ctype: item.ctype,
