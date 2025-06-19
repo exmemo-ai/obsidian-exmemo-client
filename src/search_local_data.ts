@@ -3,8 +3,12 @@ import { App, TFile } from 'obsidian';
 export interface LocalSearchResult {
     title: string;
     createdTime: string;
-    tags: string[];
+    addr: string;
     content: string;
+    etype: string;
+    isRemote: boolean;
+
+    tags: string[];
     file: TFile;
     keywordIndex?: number;
     keywordLength?: number;
@@ -155,8 +159,12 @@ export async function searchLocalData(
             results.push({
                 title: file.basename,
                 createdTime: createdTime,
-                tags: extractTags(content),
+                addr: file.path,
+                etype: 'note',
                 content: snippet,
+                isRemote: false,
+                // others
+                tags: extractTags(content),
                 file: file,
                 keywordIndex: keywordIndex === -1 ? undefined : keywordIndex,
                 keywordLength: keywordArray.length > 0 ? keywordArray[0].length : 0,
@@ -173,9 +181,13 @@ export async function searchLocalData(
             results.push({
                 title: file.basename,
                 createdTime: createdTime,
-                tags: extractTags(content),
+                addr: file.path,
+                etype: 'note',
                 content: content.substring(0, 100) + (content.length > 100 ? "..." : ""),
-                file: file
+                isRemote: false,
+                // others
+                tags: extractTags(content),
+                file: file,
             });
 
             if (results.length >= count) {

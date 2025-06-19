@@ -2,13 +2,15 @@ import { MarkdownView, Notice, Plugin } from 'obsidian';
 import { t } from "src/lang/helpers"
 import { requestWithToken } from "src/utils";
 
-export interface SearchResult {
+export interface RemoteSearchResult {
     title: string;
-    created_time: string;
-    ctype: string;
-    etype: string;
+    createdTime: string;
     addr: string;
-    raw: string; 
+    content: string; 
+    etype: string;
+    isRemote: boolean;
+    // others
+    ctype: string;
 }
 
 export async function searchRemoteData(
@@ -23,7 +25,7 @@ export async function searchRemoteData(
     etype: string = '',
     status: string = '',
     auto_login: boolean = true
-): Promise<SearchResult[]> {
+): Promise<RemoteSearchResult[]> {
     if (!plugin) {
         throw new Error('ExMemo plugin not found');
     }
@@ -66,10 +68,12 @@ export async function searchRemoteData(
         return rawData.map((item: any) => ({
             title: item.title,
             created_time: item.created_time,
-            ctype: item.ctype,
             etype: item.etype,
             addr: item.addr,
-            raw: item.content ? item.content : item.raw
+            content: item.content ? item.content : item.raw,
+            isRemote: true,
+            // others
+            ctype: item.ctype,
         }));
     } catch (err) {
         plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
@@ -80,7 +84,7 @@ export async function searchRemoteData(
 
 export async function writeSearchResultsToEditor(
     plugin: Plugin,
-    data: SearchResult[],
+    data: RemoteSearchResult[],
     keyword: string
 ): Promise<void> {
     const editor = plugin.app.workspace.getActiveViewOfType(MarkdownView)?.editor;
@@ -93,12 +97,12 @@ export async function writeSearchResultsToEditor(
         let desc = '';
         if (item.etype == 'web') {
             desc = '* ' + JSON.stringify(item.title) + '\n'
-                + '  ' + item.created_time + " " + item.ctype + "\n"
+                + '  ' + item.createdTime + " " + item.ctype + "\n"
                 + '  [' + JSON.stringify(item.title) + "](" + item.addr + ")\n\n";
         } else if (item.etype == 'record') {
-            let content = item.raw.replace(/[\r\n]+/g, '\n');
+            let content = item.content.replace(/[\r\n]+/g, '\n');
             desc = '* ' + JSON.stringify(item.title) + "\n"
-                + '  ' + item.created_time + " " + item.ctype + "\n"
+                + '  ' + item.createdTime + " " + item.ctype + "\n"
                 + "  " + content + "\n\n";
         } else if (item.etype == 'note') {
             desc = formatNoteResult(plugin, item, keyword);
@@ -107,7 +111,7 @@ export async function writeSearchResultsToEditor(
     }
 }
 
-function formatNoteResult(plugin: Plugin, item: SearchResult, keyword: string): string {
+function formatNoteResult(plugin: Plugin, item: RemoteSearchResult, keyword: string): string {
     let addr = item.addr;
     let path = addr.split('/');
     let vault_name = path[0];
@@ -118,10 +122,10 @@ function formatNoteResult(plugin: Plugin, item: SearchResult, keyword: string): 
         ? `* [${item.title}](${rel_path})\n`
         : `* ${item.title}: ${addr}\n`;
     
-    desc += `  ${item.created_time} ${item.ctype}\n`;
+    desc += `  ${item.createdTime} ${item.ctype}\n`;
 
-    if (item.raw) {
-        let content = item.raw.replace(/[\r\n]+/g, '\n');
+    if (item.content) {
+        let content = item.content.replace(/[\r\n]+/g, '\n');
         let content_lines = content.split('\n');
         for (let line of content_lines) {
             if (line.indexOf(keyword) != -1) {

@@ -16,6 +16,8 @@ export interface ExMemoSettings {
 	url: string;
 	include: string;
 	exclude: string;
+	isRemoteSearch: boolean;
+	lastSearchType: string;
 	localSearchHistory: Record<string, SearchParams>;
 	advancedSearchVisible: boolean;
 }
@@ -30,6 +32,8 @@ export const DEFAULT_SETTINGS: ExMemoSettings = {
 	url: 'http://localhost:8005',
 	include: '',
 	exclude: '',
+	isRemoteSearch: false,
+	lastSearchType: 'note',
 	localSearchHistory: {},
 	advancedSearchVisible: false,
 }

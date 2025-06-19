@@ -1,7 +1,7 @@
 import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult, highlightTextInElement } from './search_local_data';
-import { searchRemoteData, SearchResult } from './search_remote_data';
+import { searchRemoteData, RemoteSearchResult } from './search_remote_data';
 
 export class SearchUI {
     app: App;
@@ -33,7 +33,7 @@ export class SearchUI {
         this.plugin = plugin;
         this.showPath = showPath;
         this.caseSensitiveChecked = false;
-        this.isRemoteSearch = false;
+        this.isRemoteSearch = this.plugin.settings.isRemoteSearch;
 
         containerEl.addClass('local-search-content-wrapper');
 
@@ -42,6 +42,7 @@ export class SearchUI {
 
         this.resultsContainerEl = containerEl.createEl('div', { cls: 'search-results-container' });
         this.restoreLastSearch();
+        this.executeSearch();
     }
 
     protected initializeUI(containerEl: HTMLElement) {
@@ -65,9 +66,10 @@ export class SearchUI {
         
         searchModeButton.addEventListener('click', () => {
             this.isRemoteSearch = !this.isRemoteSearch;
+            this.plugin.settings.isRemoteSearch = this.isRemoteSearch;
+            this.plugin.saveSettings();
             searchModeButton.textContent = this.isRemoteSearch ? '🌐' : '📁';
             this.setType();
-            //this.executeSearch();
         });
 
         const btnControlsEl = inputWrapperEl.createEl('div', { cls: 'btn-controls' });
@@ -116,6 +118,7 @@ export class SearchUI {
         clearButtonEl.addEventListener('click', () => {
             this.keywordInputEl.value = '';
             clearButtonEl.style.display = 'none';
+            this.resultsContainerEl.empty();
         });        
 
         caseSensitiveButtonEl.addEventListener('click', () => {
@@ -169,19 +172,18 @@ export class SearchUI {
 
         this.typeSelectEl = this.typeContainer.createEl('select', { cls: 'type-select' });
         
-        const noteOption = this.typeSelectEl.createEl('option');
-        noteOption.value = 'note';
-        noteOption.textContent = t('note');
-        
-        const webOption = this.typeSelectEl.createEl('option');
-        webOption.value = 'web';
-        webOption.textContent = t('web');
-        
-        const recordOption = this.typeSelectEl.createEl('option');
-        recordOption.value = 'record';
-        recordOption.textContent = t('record');
+        const optionList = ["all", "note", "web", "record", "file", "chat"];
+        for (const option of optionList) {
+            const opt = this.typeSelectEl.createEl('option');
+            opt.value = option;
+            opt.textContent = t(option) || option.charAt(0).toUpperCase() + option.slice(1);
+        }
 
-        this.setType();
+        this.typeSelectEl.value = this.plugin.settings.lastSearchType;
+        this.typeSelectEl.addEventListener('change', () => {
+            this.plugin.settings.lastSearchType = this.typeSelectEl.value;
+            this.plugin.saveSettings();
+        });
 
         const dateRangeContainer = this.advancedSearchEl.createEl('div', { cls: 'date-range-container' });
 
@@ -210,15 +212,17 @@ export class SearchUI {
             this.plugin.settings.advancedSearchVisible = this.advancedSearchVisible;
             this.plugin.saveSettings();
         });
+
+        this.setType();
     }
 
     setType() {
         if (this.typeContainer) {
             this.typeContainer.style.display = this.isRemoteSearch ? 'flex' : 'none';
         }
-        if (this.searchBtnControlsEl) {
-            this.searchBtnControlsEl.style.display = this.isRemoteSearch ? 'block' : 'none';
-        }
+        //if (this.searchBtnControlsEl) {
+        //    this.searchBtnControlsEl.style.display = this.isRemoteSearch ? 'block' : 'none';
+        //}
         if (this.folderContainer) {
             this.folderContainer.style.display = this.isRemoteSearch ? 'none' : 'flex';
         }
@@ -226,7 +230,10 @@ export class SearchUI {
 
     async executeSearch() {
         const keyword = this.keywordInputEl.value;
-        if (!keyword.trim()) return;
+        if (!keyword.trim()) {
+            this.resultsContainerEl.empty();
+            return;
+        }
 
         const startDate = this.dateStartEl.value;
         const endDate = this.dateEndEl.value;
@@ -237,7 +244,10 @@ export class SearchUI {
         this.updateHistoryKeywords();
 
         if (this.isRemoteSearch) {
-            const selectedType = this.typeSelectEl ? this.typeSelectEl.value : '';
+            let selectedType = this.typeSelectEl ? this.typeSelectEl.value : '';
+            if (!selectedType || selectedType === 'all') {
+                selectedType = '';
+            }
             const results = await searchRemoteData(
                 this.plugin,
                 keyword,
@@ -247,7 +257,7 @@ export class SearchUI {
                 caseSensitive,
                 101,
                 '', // ctype
-                selectedType, // etype
+                selectedType,
                 '' // status
             );
             console.log('Remote search results:', results);
@@ -357,6 +367,72 @@ export class SearchUI {
         }
     }
 
+    protected async openNote(addr: string) {
+        await this.app.workspace.openLinkText(addr, '', true);
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        const searchValue = this.keywordInputEl.value;
+        if (searchValue.startsWith('tag:')) {
+            return;
+        } else if (searchValue.startsWith('file:')) {
+            return;
+        }
+
+        const view = this.app.workspace.getActiveViewOfType(View);
+        if (view && 'editor' in view) {
+            const editor = (view as any).editor as Editor;
+            if (editor) {
+                if (!searchValue) return;
+                console.log(`Searching for: ${searchValue}`);
+                editor.focus();
+                const keyword = searchValue;
+                const content = editor.getValue();
+                //
+                const caseSensitive = this.caseSensitiveChecked;
+                const searchContent = caseSensitive ? content : content.toLowerCase();
+                const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
+                const index = searchContent.indexOf(searchKeyword);
+                if (index >= 0) {
+                    console.log(`Highlighting keyword: ${keyword} at index: ${index}`);
+                    const startPos = editor.offsetToPos(index);
+                    const endPos = editor.offsetToPos(index + keyword.length);
+                    setTimeout(() => {
+                        editor.setSelection(startPos, endPos);
+                        const pos = editor.offsetToPos(index);
+                        const betterPos = { line: pos.line - 5, ch: 0 };
+                        console.log(`Scrolling to position:  ${JSON.stringify(betterPos)}`, pos, startPos);
+                        editor.scrollIntoView({ from: betterPos, to: betterPos }, true);
+                        //this.app.commands.executeCommandById("editor:open-search");
+                    }, 100);
+                }
+            }
+        }
+    }
+
+    protected async openResult(result: LocalSearchResult | RemoteSearchResult) {
+        console.log('Opening result:', result);
+        if (!result) return;
+        if (result.etype === 'web' && result.addr) {
+            window.open(result.addr, '_blank');
+            return;
+        } else if (result.etype === 'note' && result.addr) {
+            let addr = null;
+            if (result.isRemote) {
+                let path = result.addr.split('/');
+                let vault_name = path[0];
+                let current_vault = this.plugin.app.vault.getName();
+                if (current_vault === vault_name) {
+                    addr = path.slice(1).join('/');
+                }
+            } else {
+                addr = result.addr;
+            }
+            if (addr) {
+                await this.openNote(addr);
+            }
+        }
+    }
+
     protected displayLocalResults(results: LocalSearchResult[]) {
         this.resultsContainerEl.empty();
 
@@ -393,45 +469,7 @@ export class SearchUI {
             const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
 
             resultItemEl.addEventListener('click', async () => {
-                await this.app.workspace.openLinkText(result.file.path, '', true);
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                const searchValue = this.keywordInputEl.value;
-                if (searchValue.startsWith('tag:')) {
-                    return;
-                } else if (searchValue.startsWith('file:')) {
-                    return;
-                }
-
-                const view = this.app.workspace.getActiveViewOfType(View);
-                if (view && 'editor' in view) {
-                    const editor = (view as any).editor as Editor;
-                    if (editor) {
-                        if (!searchValue) return;
-                        console.log(`Searching for: ${searchValue}`);
-                        editor.focus();
-                        const keyword = searchValue;
-                        const content = editor.getValue();
-                        //
-                        const caseSensitive = this.caseSensitiveChecked;
-                        const searchContent = caseSensitive ? content : content.toLowerCase();
-                        const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
-                        const index = searchContent.indexOf(searchKeyword);
-                        if (index >= 0) {
-                            console.log(`Highlighting keyword: ${keyword} at index: ${index}`);
-                            const startPos = editor.offsetToPos(index);
-                            const endPos = editor.offsetToPos(index + keyword.length);
-                            setTimeout(() => {
-                                editor.setSelection(startPos, endPos);
-                                const pos = editor.offsetToPos(index);
-                                const betterPos = { line: pos.line - 5, ch: 0 };
-                                console.log(`Scrolling to position:  ${JSON.stringify(betterPos)}`, pos, startPos);
-                                editor.scrollIntoView({ from: betterPos, to: betterPos }, true);
-                                //this.app.commands.executeCommandById("editor:open-search");
-                            }, 100);
-                        }
-                    }
-                }
+                this.openResult(result);
             });
 
             const titleRowEl = resultItemEl.createEl('div', { cls: 'local-search-title-row' });
@@ -496,7 +534,7 @@ export class SearchUI {
         });
     }
 
-    protected displayRemoteResults(results: SearchResult[]) {
+    protected displayRemoteResults(results: RemoteSearchResult[]) {
         this.resultsContainerEl.empty();
 
         const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
@@ -526,33 +564,40 @@ export class SearchUI {
             titleEl.textContent = result.title;
 
             const timeEl = titleRowEl.createEl('div', { cls: 'remote-search-time' });
-            timeEl.textContent = result.created_time;
+            timeEl.textContent = result.createdTime;
+
+            const infoRowEl = resultItemEl.createEl('div', { cls: 'remote-search-info-row' });
 
             if (result.addr) {
-                const pathEl = resultItemEl.createEl('div', { cls: 'remote-search-path' });
+                const pathEl = infoRowEl.createEl('div', { cls: 'remote-search-path' });
                 pathEl.textContent = result.addr;
             }
 
-            if (result.ctype || result.etype) {
-                const typeEl = resultItemEl.createEl('div', { cls: 'local-search-type' });
-                typeEl.textContent = `${result.ctype || ''} ${result.etype || ''}`.trim();
+            if (result.etype) {
+                const typeEl = infoRowEl.createEl('div', { cls: 'remote-search-type' });
+                typeEl.textContent = t(`${result.etype || ''}`.trim());
             }
 
-            if (result.raw) {
+            if (result.content) {
                 const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
-                contentEl.textContent = result.raw.substring(0, 200) + (result.raw.length > 200 ? '...' : '');
+                contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
 
                 if (this.keywordInputEl.value) {
                     this.highlightMatchedContent(contentEl, this.keywordInputEl.value);
                 }
             }
 
+            /*
             if (result.etype === 'web' && result.addr) {
                 resultItemEl.addEventListener('click', () => {
                     window.open(result.addr, '_blank');
                 });
                 resultItemEl.addClass('clickable');
-            }
+            }*/
+            resultItemEl.addEventListener('click', async () => {
+                await this.openResult(result);
+            });
+            resultItemEl.addClass('clickable');
         });
     }
 

@@ -55,6 +55,7 @@ search
     overflow-y: auto;
     min-height: 0;
     padding-left: 12px;
+    padding-right: 4px;
     font-size: 0.9em;
 }
 
@@ -343,7 +344,23 @@ search
     overflow: hidden;
     text-overflow: ellipsis;
     opacity: 0.7;
-    max-width: 100%;
+    flex: 1;
+    min-width: 0;
+}
+
+.remote-search-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 4px;
+    gap: 10px;
+}
+
+.remote-search-type {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .keyword-highlight {

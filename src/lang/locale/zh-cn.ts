@@ -42,9 +42,14 @@ export default {
     'updateIndex': '更新索引',
     'regenerate': '重新生成',
     'general': '常规',
+    //
     'note': '笔记',
     'web': '网页',
     'record': '记录',
+    'all': '全部',
+    'chat': '聊天',
+    'file': '文件',
+    //
     'etype': '类型',
     'range': '范围',    
     'total': '总计',

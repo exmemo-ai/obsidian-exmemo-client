@@ -41,9 +41,14 @@ export default {
   'updateIndex': 'Update index',
   'regenerate': 'Regenerate',
   'general': 'General',
+  //
   'note': 'Note',
   'web': 'Web',
   'record': 'Record',
+  'all': 'All',
+  'chat': 'Chat',
+  'file': 'File',
+  //
   'etype': 'type',
   'range': 'range',
   'total': 'Total',
