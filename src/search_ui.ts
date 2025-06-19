@@ -190,12 +190,12 @@ export class SearchUI {
 
         const datesWrapper = dateRangeContainer.createEl('div', { cls: 'dates-wrapper' });
 
-        this.dateStartEl = datesWrapper.createEl('input', { cls: 'date-input' });
+        this.dateStartEl = datesWrapper.createEl('input', { cls: 'date-input-ex' });
         this.dateStartEl.type = 'date';
 
         datesWrapper.createEl('span').textContent = '-';
 
-        this.dateEndEl = datesWrapper.createEl('input', { cls: 'date-input' });
+        this.dateEndEl = datesWrapper.createEl('input', { cls: 'date-input-ex' });
         this.dateEndEl.type = 'date';
 
         this.advancedSearchVisible = !!this.plugin.settings.advancedSearchVisible;
@@ -214,13 +214,13 @@ export class SearchUI {
 
     setType() {
         if (this.typeContainer) {
-            this.typeContainer.style.display = this.isRemoteSearch ? 'block' : 'none';
+            this.typeContainer.style.display = this.isRemoteSearch ? 'flex' : 'none';
         }
         if (this.searchBtnControlsEl) {
             this.searchBtnControlsEl.style.display = this.isRemoteSearch ? 'block' : 'none';
         }
         if (this.folderContainer) {
-            this.folderContainer.style.display = this.isRemoteSearch ? 'none' : 'block';
+            this.folderContainer.style.display = this.isRemoteSearch ? 'none' : 'flex';
         }
     }
 

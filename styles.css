@@ -191,28 +191,51 @@ search
     background-color: var(--background-secondary);
 }
 
+.type-container,
 .folder-container,
 .date-range-container {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     margin-bottom: 4px;
+    width: 100%;
+}
+
+.type-select,
+.folder-select {
+    flex-grow: 1;
+    min-width: 0;
 }
 
 .search-label {
-    min-width: 70px;
+    min-width: 50px;
 }
 
-.folder-select,
-.date-input {
-    flex: 1;
+.folder-container .search-label {
+    width: 50px;
+    flex-shrink: 0;
+}
+
+.folder-container select {
+    flex: 1 1 auto !important;
+    min-width: 0;
+    width: auto !important;
 }
 
 .dates-wrapper {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 2px;
     flex: 1;
+    width: auto !important;
+}
+
+.date-input-ex {
+    width: 100%;
+    padding-right: 2px !important;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    background-color: var(--background-primary);
 }
 
 .results-header {
