@@ -1,9 +1,10 @@
 import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult } from './search_local_data';
-import { searchRemoteData, RemoteSearchResult } from './search_remote_data';
+import { searchRemoteData } from './search_remote_data';
 import { highlightElement } from './search_result_highlight';
-import { parseKeywords } from './search_data';
+import { parseKeywords, BaseSearchResult } from './search_data';
+import { RemoteNoteViewerModal } from './remote_note_viewer';
 
 export class SearchUI {
     app: App;
@@ -127,11 +128,9 @@ export class SearchUI {
         caseSensitiveButtonEl.addEventListener('click', () => {
             this.caseSensitiveChecked = !this.caseSensitiveChecked;
             if (this.caseSensitiveChecked) {
-                console.log('Case sensitive search enabled');
                 caseSensitiveButtonEl.removeClass('case-sensitive-inactive');
                 caseSensitiveButtonEl.addClass('case-sensitive-active');
             } else {
-                console.log('Case sensitive search disabled');
                 caseSensitiveButtonEl.addClass('case-sensitive-inactive');
                 caseSensitiveButtonEl.removeClass('case-sensitive-active');
             }
@@ -396,14 +395,12 @@ export class SearchUI {
                 const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
                 const index = searchContent.indexOf(searchKeyword);
                 if (index >= 0) {
-                    console.log(`Highlighting keyword: ${keyword} at index: ${index}`);
                     const startPos = editor.offsetToPos(index);
                     const endPos = editor.offsetToPos(index + keyword.length);
                     setTimeout(() => {
                         editor.setSelection(startPos, endPos);
                         const pos = editor.offsetToPos(index);
                         const betterPos = { line: pos.line - 5, ch: 0 };
-                        console.log(`Scrolling to position:  ${JSON.stringify(betterPos)}`, pos, startPos);
                         editor.scrollIntoView({ from: betterPos, to: betterPos }, true);
                         //this.app.commands.executeCommandById("editor:open-search");
                     }, 100);
@@ -412,13 +409,17 @@ export class SearchUI {
         }
     }
 
-    protected async openResult(result: LocalSearchResult | RemoteSearchResult) {
-        console.log('Opening result:', result);
+    protected async openResult(result:BaseSearchResult) {
         if (!result) return;
         if (result.etype === 'web' && result.addr) {
             window.open(result.addr, '_blank');
             return;
-        } else if (result.etype === 'note' && result.addr) {
+        } 
+        if (result.idx && (result.etype === 'record' || result.etype === 'chat' || result.etype === 'file')) {
+            new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+            return;
+        }        
+        if (result.etype === 'note' && result.addr) {
             let addr = null;
             if (result.isRemote) {
                 let path = result.addr.split('/');
@@ -426,6 +427,9 @@ export class SearchUI {
                 let current_vault = this.plugin.app.vault.getName();
                 if (current_vault === vault_name) {
                     addr = path.slice(1).join('/');
+                } else {
+                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+                    return;
                 }
             } else {
                 addr = result.addr;
@@ -528,7 +532,7 @@ export class SearchUI {
         });
     }
 
-    protected displayRemoteResults(results: RemoteSearchResult[]) {
+    protected displayRemoteResults(results: BaseSearchResult[]) {
         this.resultsContainerEl.empty();
 
         const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
@@ -615,7 +619,6 @@ export class LocalSearchView extends ItemView {
         const container = this.containerEl.children[1] as HTMLElement;
         container.empty();
         container.style.padding = '0'; // later move to style.css
-        console.log('LocalSearchView onOpen', container);
         const searchEl = container.createEl('div');
         searchEl.addClass('local-search-content-wrapper');
         new SearchUI(this.app, this.plugin, searchEl, false);

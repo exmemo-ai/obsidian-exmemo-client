@@ -90,5 +90,24 @@ export default {
   "remoteSearchResults": "Remote search results",
   "local": "Local",
   "remote": "Remote",
-  "localOrRemote": "Local/Remote"
+  "localOrRemote": "Local/Remote",
+  // remote note viewer
+  "loadingNoteContent": "Loading note content...",
+  "missingNoteIndex": "Missing note index (idx)",
+  "remoteContentNotPreviewable": "Remote file content cannot be previewed",
+  "nextKeyword": "Next",
+  "nextKeywordWithCount": "Next ({current}/{total})",
+  "openInBrowser": "Open in browser",
+  "downloadFile": "Download",
+  "copy": "Copy",
+  "loadError": "Load error",
+  "cannotLoadNoteContent": "Cannot load note content.",
+  "retry": "Retry",
+  "copied": "Copied!",
+  "copyFailed": "Copy failed",
+  "missingFileIndex": "Missing file index (idx)",
+  "startDownload": "Start download: {filename}",
+  "downloadFailedResponse": "Download failed: response format error",
+  "downloadFileFailed": "Download file failed:",
+  "downloadFileFailedRetry": "Download file failed, please try again later"
 }

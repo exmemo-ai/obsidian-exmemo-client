@@ -1,14 +1,7 @@
 import { App, TFile } from 'obsidian';
-import { parseKeywords, extractSnippet, CONTENT_LIMIT } from 'src/search_data';
+import { parseKeywords, extractSnippet, CONTENT_LIMIT, BaseSearchResult } from 'src/search_data';
 
-export interface LocalSearchResult {
-    title: string;
-    createdTime: string;
-    addr: string;
-    content: string;
-    etype: string;
-    isRemote: boolean;
-
+export interface LocalSearchResult extends BaseSearchResult {
     tags: string[];
     file: TFile;
     keywordIndex?: number;
@@ -156,6 +149,7 @@ export async function searchLocalData(
                 etype: 'note',
                 content: snippet,
                 isRemote: false,
+                idx: null,
                 // others
                 tags: extractTags(content),
                 file: file,
@@ -178,6 +172,7 @@ export async function searchLocalData(
                 etype: 'note',
                 content: content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : ""),
                 isRemote: false,
+                idx: null,
                 // others
                 tags: extractTags(content),
                 file: file,

@@ -1,16 +1,9 @@
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import { t } from "src/lang/helpers"
 import { requestWithToken } from "src/utils";
-import { parseKeywords, extractSnippet } from "src/search_data";
+import { parseKeywords, extractSnippet, BaseSearchResult } from "src/search_data";
 
-export interface RemoteSearchResult {
-    title: string;
-    createdTime: string;
-    addr: string;
-    content: string; 
-    etype: string;
-    isRemote: boolean;
-    // others
+export interface RemoteSearchResult extends BaseSearchResult {
     ctype: string;
 }
 
@@ -75,6 +68,7 @@ export async function searchRemoteData(
             content: extractSnippet(item.content ? item.content : item.raw, keywords, caseSensitive),
             isRemote: true,
             // others
+            idx: item.idx,
             ctype: item.ctype,
         }));
     } catch (err) {

@@ -1,5 +1,15 @@
 export const CONTENT_LIMIT = 100;
 
+export interface BaseSearchResult {
+    title: string;
+    createdTime: string;
+    addr: string;
+    content: string;
+    etype: string;
+    isRemote: boolean;
+    idx: string | null;
+}
+
 export function parseKeywords(searchValue: string): string[] {
     const keywordArray: string[] = [];
     // Match phrases in quotes and words outside quotes
@@ -70,10 +80,11 @@ function createSnippet(content: string, index: number, matchLength: number): str
 }
 
 export function extractSnippet(content: string, keywords: string[], caseSensitive: boolean = false): string {
-    if (!keywords || keywords.length === 0) return content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : "");
-    
+    if (!keywords || keywords.length === 0) 
+        return content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : "");
+    if (!content || content.length === 0) return "";
+
     let contentToSearch = caseSensitive ? content : content.toLowerCase();
-    
     // First try to find consecutive keywords match
     if (keywords.length > 1) {
         let bestConsecutiveMatchIndex = -1;

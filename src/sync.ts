@@ -72,7 +72,8 @@ export class Sync {
     interrupt: boolean;
     interruptButton: any;
     localInfo: LocalInfo;
-    currentModal: ConfirmModal | null = null;
+    currentConflictModal: ConflictModal | null = null;
+    currentConfirmModal: ConfirmModal | null = null;
 
     constructor(plugin: any, app: any, settings: any) {
         this.plugin = plugin;
@@ -111,7 +112,7 @@ export class Sync {
         return new Blob(chunks).arrayBuffer();
     }
 
-    async uploadFiles(uploadList: TFile[]) {
+    async uploadFiles(uploadList: TFile[]): Promise<[boolean, TFile[]]> {
         const url = new URL(this.settings.url + '/api/entry/data/');
         const groupSize = 5;
         const groupCount = Math.ceil(uploadList.length / groupSize);
@@ -353,30 +354,9 @@ export class Sync {
             }
             
             if (conflict_list.length > 0 && !this.interrupt) {
-                return new Promise<void>((resolve) => {
-                    const conflictModal = new ConflictModal(this.app, conflict_list, async (result) => {
-                        if (result === 'upload') {
-                            let updateFiles: TFile[] = [];
-                            for (const dic of conflict_list) {
-                                const file = this.app.vault.getAbstractFileByPath(dic.addr);
-                                if (file instanceof TFile) {
-                                    updateFiles.push(file);
-                                }
-                            }
-                            if (updateFiles.length > 0) {
-                                await this.uploadFiles(updateFiles);
-                            }
-                        } else if (result === 'download') {
-                            const downloadResult = await this.downloadFiles(conflict_list);
-                            if (!downloadResult) {
-                                opt_success = false;
-                            }
-                        }                        
-                        this.finishSync(opt_success, upload_list, download_list, conflict_list, result);
-                        resolve();
-                    });
-                    conflictModal.open();
-                });
+                const conflict_result = await this.showConflict(conflict_list);
+                opt_success = opt_success && conflict_result.success;
+                this.finishSync(opt_success, upload_list, download_list, conflict_list, conflict_result.result);
             } else {
                 this.finishSync(opt_success, upload_list, download_list);
             }
@@ -384,6 +364,42 @@ export class Sync {
             this.plugin.showNotice('sync', t('syncFailed') + ': ' + err.status, { timeout: 3000 });
         }
     }
+
+    showConflict(conflict_list: []): Promise<{result: string, success: boolean}> {
+        return new Promise<{result: string, success: boolean}>((resolve) => {
+            if (this.currentConflictModal) {
+                this.currentConflictModal.close();
+                this.currentConflictModal = null;
+            }
+                        
+            const conflictModal = new ConflictModal(this.app, conflict_list, async (result) => {
+                let opt_success = true;
+                if (result === 'upload') {
+                    let updateFiles: TFile[] = [];
+                    for (const dic of conflict_list) {
+                        const file = this.app.vault.getAbstractFileByPath(dic['addr']);
+                        if (file instanceof TFile) {
+                            updateFiles.push(file);
+                        }
+                    }
+                    if (updateFiles.length > 0) {
+                        const [uploadSuccess, uploadedFiles] = await this.uploadFiles(updateFiles);
+                        opt_success = uploadSuccess;
+                    }
+                } else if (result === 'download') {
+                    const downloadResult = await this.downloadFiles(conflict_list);
+                    opt_success = downloadResult;
+                }
+                
+                this.currentConflictModal = null;
+                resolve({result, success: opt_success});
+            });
+            
+            this.currentConflictModal = conflictModal;
+            conflictModal.open();
+        });
+    }
+
     
     async finishSync(opt_success: boolean, upload_list: any[], download_list: any[], conflict_list?: any[], conflict_result?: string) {
         // wait 1 second to show
@@ -433,9 +449,9 @@ export class Sync {
             info += '\n' + dic['addr'];
         }
 
-        if (this.plugin.currentModal) {
-            this.plugin.currentModal.close();
-            this.plugin.currentModal = null;
+        if (this.currentConfirmModal) {
+            this.currentConfirmModal.close();
+            this.currentConfirmModal = null;
         }
 
         const confirmModal = new ConfirmModal(this.app, info, (userConfirmed) => {
@@ -451,10 +467,10 @@ export class Sync {
                     }
                 }
             }
-            this.plugin.currentModal = null;
+            this.currentConfirmModal = null;
         });
 
-        this.plugin.currentModal = confirmModal;
+        this.currentConfirmModal = confirmModal;
         confirmModal.open();
     }
 

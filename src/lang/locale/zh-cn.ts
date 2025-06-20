@@ -92,4 +92,24 @@ export default {
     "local": "本地",
     "remote": "远程",
     "localOrRemote": "本地/远程",
+    // search view
+    // remote note viewer
+    "loadingNoteContent": "正在加载笔记内容...",
+    "missingNoteIndex": "缺少笔记索引（idx）",
+    "remoteContentNotPreviewable": "远程文件内容无法预览",
+    "nextKeyword": "下一个",
+    "nextKeywordWithCount": "下一个 ({current}/{total})",
+    "openInBrowser": "浏览器打开",
+    "downloadFile": "下载",
+    "copy": "复制",
+    "loadError": "加载错误",
+    "cannotLoadNoteContent": "无法加载笔记内容。",
+    "retry": "重试",
+    "copied": "已复制!",
+    "copyFailed": "复制失败",
+    "missingFileIndex": "缺少文件索引（idx）",
+    "startDownload": "开始下载: {filename}",
+    "downloadFailedResponse": "下载失败: 响应格式错误",
+    "downloadFileFailed": "下载文件失败:",
+    "downloadFileFailedRetry": "下载文件失败，请稍后重试"
 }
