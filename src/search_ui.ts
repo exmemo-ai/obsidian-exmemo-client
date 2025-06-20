@@ -178,7 +178,7 @@ export class SearchUI {
         for (const option of optionList) {
             const opt = this.typeSelectEl.createEl('option');
             opt.value = option;
-            opt.textContent = t(option) || option.charAt(0).toUpperCase() + option.slice(1);
+            opt.textContent = t(option as any) || option.charAt(0).toUpperCase() + option.slice(1);
         }
 
         this.typeSelectEl.value = this.plugin.settings.lastSearchType;
@@ -573,7 +573,7 @@ export class SearchUI {
 
             if (result.etype) {
                 const typeEl = infoRowEl.createEl('div', { cls: 'remote-search-type' });
-                typeEl.textContent = t(`${result.etype || ''}`.trim());
+                typeEl.textContent = t(`${result.etype || ''}`.trim() as any);
             }
 
             if (result.content) {
