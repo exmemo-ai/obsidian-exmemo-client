@@ -1,7 +1,8 @@
 export function highlightElement(element: HTMLElement, keywords: string | string[], caseSensitive: boolean = false) {
 
     const keywordArray = Array.isArray(keywords) ? keywords : [keywords];
-    if (!keywordArray.length) return;
+    const validKeywords = keywordArray.filter(keyword => keyword && keyword.trim() !== '');
+    if (!validKeywords.length) return;
 
     const textNodes: Text[] = [];
     const walk = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null);
@@ -21,7 +22,7 @@ export function highlightElement(element: HTMLElement, keywords: string | string
         let lastIndex = 0;
         let matches: {index: number, length: number}[] = [];
 
-        keywordArray.forEach(keyword => {
+        validKeywords.forEach(keyword => {
             const searchText = caseSensitive ? text : text.toLowerCase();
             const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
             

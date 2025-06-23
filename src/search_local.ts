@@ -26,7 +26,6 @@ export class LocalSearchModal extends Modal {
         }
 
         this.searchUI = new SearchUI(this.app, this.plugin, contentEl, true);
-        contentEl.addClass('local-search-content-wrapper');
     }
 
     onClose() {

@@ -88,11 +88,12 @@ export default {
     "keywordSearch": "关键字搜索",
     "searchSyntaxTip": "支持 tag:标签, file:文件名",
     "clearInput": "清除输入",
-    "remoteSearchResults": "远程搜索结果",
+    "remoteSearchResults": "远程搜索",
     "local": "本地",
     "remote": "远程",
     "localOrRemote": "本地/远程",
-    // search view
+    "searching": "正在搜索...",
+    "searchError": "搜索错误",
     // remote note viewer
     "loadingNoteContent": "正在加载笔记内容...",
     "missingNoteIndex": "缺少笔记索引（idx）",
@@ -111,5 +112,5 @@ export default {
     "startDownload": "开始下载: {filename}",
     "downloadFailedResponse": "下载失败: 响应格式错误",
     "downloadFileFailed": "下载文件失败:",
-    "downloadFileFailedRetry": "下载文件失败，请稍后重试"
+    "downloadFileFailedRetry": "下载文件失败，请稍后重试",
 }

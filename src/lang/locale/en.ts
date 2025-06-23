@@ -87,10 +87,12 @@ export default {
   "keywordSearch": "Keyword search",
   "searchSyntaxTip": "Supports tag:tagname, file:filename",
   "clearInput": "Clear input",
-  "remoteSearchResults": "Remote search results",
+  "remoteSearchResults": "Remote search",
   "local": "Local",
   "remote": "Remote",
   "localOrRemote": "Local/Remote",
+  "searching": "Searching...",
+  "searchError": "Search error",
   // remote note viewer
   "loadingNoteContent": "Loading note content...",
   "missingNoteIndex": "Missing note index (idx)",

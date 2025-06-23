@@ -27,6 +27,9 @@ export class SearchUI {
     typeContainer: HTMLElement;
     searchBtnControlsEl: HTMLElement;
     folderContainer: HTMLElement;
+    clearButtonEl: HTMLButtonElement;
+    isSearching: boolean;
+    searchIconEl: HTMLElement;
 
     protected searchInput: HTMLInputElement;
     protected resultsList: HTMLElement;
@@ -38,9 +41,9 @@ export class SearchUI {
         this.caseSensitiveChecked = false;
         this.isRemoteSearch = this.plugin.settings.isRemoteSearch;
 
-        containerEl.addClass('local-search-content-wrapper');
+        containerEl.addClass('search-content-wrapper');
 
-        const searchAreaEl = containerEl.createEl('div', { cls: 'local-search-area' });
+        const searchAreaEl = containerEl.createEl('div', { cls: 'search-area' });
         this.initializeUI(searchAreaEl);
 
         this.resultsContainerEl = containerEl.createEl('div', { cls: 'search-results-container' });
@@ -77,12 +80,12 @@ export class SearchUI {
         });
 
         const btnControlsEl = inputWrapperEl.createEl('div', { cls: 'btn-controls' });
-        const clearButtonEl = btnControlsEl.createEl('button', {
+        this.clearButtonEl = btnControlsEl.createEl('button', {
             cls: 'clear-button',
             attr: { title: t('clearInput') || 'Clear input' }
         });
-        clearButtonEl.textContent = '×';
-        clearButtonEl.style.display = 'none';        
+        this.clearButtonEl.textContent = '×';
+        this.clearButtonEl.style.display = 'none';        
 
         const caseSensitiveButtonEl = btnControlsEl.createEl('button', {
             cls: 'case-sensitive-button',
@@ -114,14 +117,13 @@ export class SearchUI {
                 this.searchDebounceTimer = window.setTimeout(async () => {
                     await this.executeSearch();
                 }, 300);
-
-                clearButtonEl.style.display = this.keywordInputEl.value ? 'block' : 'none';
             }
+            this.resetClear();
         });
 
-        clearButtonEl.addEventListener('click', () => {
+        this.clearButtonEl.addEventListener('click', () => {
             this.keywordInputEl.value = '';
-            clearButtonEl.style.display = 'none';
+            this.clearButtonEl.style.display = 'none';
             this.executeSearch();
         });        
 
@@ -140,8 +142,8 @@ export class SearchUI {
             cls: 'search-button',
             attr: { title: t('search') }
         });
-        const searchIconEl = this.searchBtnControlsEl.createEl('div', { cls: 'search-icon' });
-        searchIconEl.createEl('div', { cls: 'search-icon-handle' });
+        this.searchIconEl = this.searchBtnControlsEl.createEl('div', { cls: 'search-icon' });
+        this.searchIconEl.createEl('div', { cls: 'search-icon-handle' });
         this.searchBtnControlsEl.addEventListener('click', async () => {
             await this.executeSearch();
         });
@@ -216,9 +218,14 @@ export class SearchUI {
         });
 
         this.setType();
+        this.resetClear();
     }
 
-    setType() {
+    protected resetClear() {
+        this.clearButtonEl.style.display = this.keywordInputEl.value ? 'block' : 'none';
+    }
+
+    protected setType() {
         if (this.typeContainer) {
             this.typeContainer.style.display = this.isRemoteSearch ? 'flex' : 'none';
         }
@@ -237,6 +244,10 @@ export class SearchUI {
             return;
         }
 
+        if (this.isSearching) {
+            return;
+        }
+
         const startDate = this.dateStartEl.value;
         const endDate = this.dateEndEl.value;
         const selectedFolder = this.folderSelectEl.value;
@@ -246,24 +257,34 @@ export class SearchUI {
         this.updateHistoryKeywords();
 
         if (this.isRemoteSearch) {
-            let selectedType = this.typeSelectEl ? this.typeSelectEl.value : '';
-            if (!selectedType || selectedType === 'all') {
-                selectedType = '';
+            this.setSearchingState(true);
+            this.showSearchingIndicator();
+            
+            try {
+                let selectedType = this.typeSelectEl ? this.typeSelectEl.value : '';
+                if (!selectedType || selectedType === 'all') {
+                    selectedType = '';
+                }
+                const results = await searchRemoteData(
+                    this.plugin,
+                    keyword,
+                    startDate,
+                    endDate,
+                    selectedFolder,
+                    caseSensitive,
+                    101,
+                    '', // ctype
+                    selectedType,
+                    '' // status
+                );
+                console.log('Remote search results:', results);
+                this.displayRemoteResults(results);
+            } catch (error) {
+                console.error('Remote search error:', error);
+                this.displaySearchError();
+            } finally {
+                this.setSearchingState(false);
             }
-            const results = await searchRemoteData(
-                this.plugin,
-                keyword,
-                startDate,
-                endDate,
-                selectedFolder,
-                caseSensitive,
-                101,
-                '', // ctype
-                selectedType,
-                '' // status
-            );
-            console.log('Remote search results:', results);
-            this.displayRemoteResults(results);
         } else {
             const results = await searchLocalData(
                 this.app,
@@ -276,6 +297,28 @@ export class SearchUI {
             );
             this.displayLocalResults(results);
         }
+    }
+
+    private setSearchingState(isSearching: boolean) {
+        this.isSearching = isSearching;
+        if (isSearching) {
+            this.searchBtnControlsEl.style.display = 'none';
+        } else {
+            this.searchBtnControlsEl.style.display = 'block';
+        }
+    }
+
+    private showSearchingIndicator() {
+        this.resultsContainerEl.empty();
+        const searchingEl = this.resultsContainerEl.createEl('div', { cls: 'searching-indicator' });
+        searchingEl.textContent = t('searching');
+    }
+
+    private displaySearchError() {
+        this.resultsContainerEl.empty();
+        
+        const errorEl = this.resultsContainerEl.createEl('div', { cls: 'search-error' });
+        errorEl.textContent = t('searchError');
     }
 
     navigateHistory(direction: 'up' | 'down') {
@@ -366,6 +409,7 @@ export class SearchUI {
 
         if (sortedEntries.length > 0 && this.keywordInputEl) {
             this.keywordInputEl.value = sortedEntries[0][0];
+            this.resetClear();
         }
     }
 
@@ -440,153 +484,147 @@ export class SearchUI {
         }
     }
 
-    protected displayLocalResults(results: LocalSearchResult[]) {
-        this.resultsContainerEl.empty();
+    private createResultItem(
+        parentEl: HTMLElement, 
+        result: LocalSearchResult | BaseSearchResult, 
+        isLocal: boolean = true,
+        keywordArray?: string[],
+        caseSensitive?: boolean
+    ): void {
+        const resultItemEl = parentEl.createEl('li', { cls: 'search-item' });
 
+        resultItemEl.addEventListener('click', async () => {
+            this.openResult(result);
+        });
+
+        const titleRowEl = resultItemEl.createEl('div', { cls: 'search-title-row' });
+        const titleEl = titleRowEl.createEl('div', { cls: 'search-item-title' });
+        titleEl.textContent = result.title;
+
+        const timeEl = titleRowEl.createEl('div', { cls: 'search-item-time' });
+        timeEl.textContent = result.createdTime;
+
+        const infoRowEl = resultItemEl.createEl('div', { cls: 'search-info-row' });
+
+        if (isLocal) {
+            const localResult = result as LocalSearchResult;
+            const pathEl = infoRowEl.createEl('div', { cls: 'search-item-path' });
+            const filePath = localResult.file.path;
+            const pathParts = filePath.split('/');
+            const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+            pathEl.textContent = folderPath ? folderPath : '/';
+        } else {
+            const remoteResult = result as BaseSearchResult;
+            if (remoteResult.addr) {
+                const pathEl = infoRowEl.createEl('div', { cls: 'search-item-path' });
+                pathEl.textContent = remoteResult.addr;
+            }
+            
+            if (remoteResult.etype) {
+                const typeEl = infoRowEl.createEl('div', { cls: 'search-item-type' });
+                typeEl.textContent = t(`${remoteResult.etype || ''}`.trim() as any);
+            }
+        }
+
+        if (result.content) {
+            const contentEl = resultItemEl.createEl('div', { cls: 'search-content' });
+            
+            if (isLocal) {
+                contentEl.textContent = result.content;
+                if (keywordArray && keywordArray.length > 0) {
+                    highlightElement(titleEl, keywordArray, caseSensitive || false);
+                    highlightElement(contentEl, keywordArray, caseSensitive || false);
+                }
+            } else {
+                contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
+                if (this.keywordInputEl.value) {
+                    highlightElement(contentEl, this.keywordInputEl.value, caseSensitive || false);
+                }
+            }
+        }
+
+        resultItemEl.addClass('clickable');
+    }
+
+    private createResultsHeader(isLocal: boolean, resultsCount: number, searchKeyword?: string): HTMLElement {
         const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
 
         let searchTypeText = '';
-        const keyword = this.keywordInputEl.value;
-        if (keyword.startsWith('tag:')) {
-            searchTypeText = t('tagSearch') || 'Tag search';
-        } else if (keyword.startsWith('file:')) {
-            searchTypeText = t('fileSearch') || 'File search';
-        } else if (keyword) {
-            searchTypeText = t('keywordSearch') || 'Keyword search';
+        if (isLocal && searchKeyword) {
+            if (searchKeyword.startsWith('tag:')) {
+                searchTypeText = t('tagSearch') || 'Tag search';
+            } else if (searchKeyword.startsWith('file:')) {
+                searchTypeText = t('fileSearch') || 'File search';
+            } else if (searchKeyword) {
+                searchTypeText = t('keywordSearch') || 'Keyword search';
+            }
         }
 
         const titleEl = headerEl.createEl('div', { cls: 'search-results-title' });
-        titleEl.textContent = searchTypeText ? `${searchTypeText}` : t('searchResults');
+        titleEl.textContent = isLocal 
+            ? (searchTypeText ? `${searchTypeText}` : t('searchResults'))
+            : (t('remoteSearchResults') || 'Remote Search Results');
 
-        if (results.length > 0) {
-            const displayCount = results.length > 100 ? '100+' : results.length.toString();
+        if (resultsCount > 0) {
+            const displayCount = resultsCount > 100 ? '100+' : resultsCount.toString();
             headerEl.createEl('span', { cls: 'results-count' }).textContent = t('total') + ': ' + displayCount;
         }
+
+        return headerEl;
+    }
+
+    protected displayLocalResults(results: LocalSearchResult[]) {
+        this.resultsContainerEl.empty();
+
+        const keyword = this.keywordInputEl.value;
+        this.createResultsHeader(true, results.length, keyword);
 
         if (results.length === 0) {
             this.resultsContainerEl.createEl('p').textContent = t('noResultsFound');
             return;
         }
 
-        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'local-search-results' });
+        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'search-results' });
         const displayResults = results.length > 100 ? results.slice(0, 100) : results;
-        const keywordInput = this.keywordInputEl.value;
         const caseSensitive = this.caseSensitiveChecked;
+        
+        const hasKeywordInput = !!keyword;
+        let keywordArray: string[] = [];
+        
+        if (hasKeywordInput) {
+            let searchValue = keyword;
+            if (keyword.startsWith('tag:')) {
+                searchValue = keyword.substring(4).trim();
+                keywordArray = [searchValue];
+            } else if (keyword.startsWith('file:')) {
+                searchValue = keyword.substring(5).trim();
+                keywordArray = [searchValue];
+            } else {
+                keywordArray = parseKeywords(searchValue);
+            }
+        }
 
         displayResults.forEach(result => {
-            const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
-
-            resultItemEl.addEventListener('click', async () => {
-                this.openResult(result);
-            });
-
-            const titleRowEl = resultItemEl.createEl('div', { cls: 'local-search-title-row' });
-
-            let titleEl: HTMLElement;
-            if (this.showPath) {
-                titleEl = titleRowEl.createEl('div', { cls: 'local-search-title-short' });
-                const pathEl = titleRowEl.createEl('div', { cls: 'local-search-path' });
-                const filePath = result.file.path;
-                const pathParts = filePath.split('/');
-                const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
-                pathEl.textContent = folderPath ? folderPath : '/';
-            } else {
-                titleEl = titleRowEl.createEl('div', { cls: 'local-search-title-long' });
-            }
-
-            const timeEl = titleRowEl.createEl('div', { cls: 'local-search-time' });
-            timeEl.textContent = result.createdTime;
-
-            const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
-
-            if (this.keywordInputEl.value) {
-                let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
-                let searchValue = keywordInput;
-
-                if (keywordInput.startsWith('tag:')) {
-                    searchType = 'tag';
-                    searchValue = keywordInput.substring(4).trim();
-                } else if (keywordInput.startsWith('file:')) {
-                    searchType = 'file';
-                    searchValue = keywordInput.substring(5).trim();
-                }
-
-                let keywordArray: string[] = [];
-                if (searchType === 'keyword') {
-                    keywordArray = parseKeywords(searchValue);
-                } else {
-                    keywordArray = [searchValue];
-                }
-
-                titleEl.textContent = result.title;
-                highlightElement(titleEl, keywordArray, caseSensitive);
-
-                if (result.content) {
-                    contentEl.textContent = result.content;
-                    highlightElement(contentEl, keywordArray, caseSensitive);
-                }
-            } else {
-                titleEl.textContent = result.title;
-                contentEl.textContent = result.content || '';
-            }
+            this.createResultItem(resultListEl, result, true, hasKeywordInput ? keywordArray : undefined, caseSensitive);
         });
     }
 
     protected displayRemoteResults(results: BaseSearchResult[]) {
         this.resultsContainerEl.empty();
 
-        const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
-
-        const titleEl = headerEl.createEl('div', { cls: 'search-results-title' });
-        titleEl.textContent = t('remoteSearchResults') || 'Remote Search Results';
-
-        if (results.length > 0) {
-            const displayCount = results.length > 100 ? '100+' : results.length.toString();
-            headerEl.createEl('span', { cls: 'results-count' }).textContent = t('total') + ': ' + displayCount;
-        }
+        this.createResultsHeader(false, results.length);
 
         if (results.length === 0) {
             this.resultsContainerEl.createEl('p').textContent = t('noResultsFound');
             return;
         }
 
-        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'local-search-results' });
+        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'search-results' });
         const displayResults = results.length > 100 ? results.slice(0, 100) : results;
         const caseSensitive = this.caseSensitiveChecked;
 
         displayResults.forEach(result => {
-            const resultItemEl = resultListEl.createEl('li', { cls: 'local-search-item' });
-
-            const titleRowEl = resultItemEl.createEl('div', { cls: 'local-search-title-row' });
-            const titleEl = titleRowEl.createEl('div', { cls: 'remote-search-title' });
-            titleEl.textContent = result.title;
-
-            const timeEl = titleRowEl.createEl('div', { cls: 'remote-search-time' });
-            timeEl.textContent = result.createdTime;
-
-            const infoRowEl = resultItemEl.createEl('div', { cls: 'remote-search-info-row' });
-
-            if (result.addr) {
-                const pathEl = infoRowEl.createEl('div', { cls: 'remote-search-path' });
-                pathEl.textContent = result.addr;
-            }
-
-            if (result.etype) {
-                const typeEl = infoRowEl.createEl('div', { cls: 'remote-search-type' });
-                typeEl.textContent = t(`${result.etype || ''}`.trim() as any);
-            }
-
-            if (result.content) {
-                const contentEl = resultItemEl.createEl('div', { cls: 'local-search-content' });
-                contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
-                if (this.keywordInputEl.value) {
-                    highlightElement(contentEl, this.keywordInputEl.value, caseSensitive);
-                }
-            }
-            resultItemEl.addEventListener('click', async () => {
-                await this.openResult(result);
-            });
-            resultItemEl.addClass('clickable');
+            this.createResultItem(resultListEl, result, false, undefined, caseSensitive);
         });
     }
 }
@@ -620,7 +658,6 @@ export class LocalSearchView extends ItemView {
         container.empty();
         container.style.padding = '0'; // later move to style.css
         const searchEl = container.createEl('div');
-        searchEl.addClass('local-search-content-wrapper');
-        new SearchUI(this.app, this.plugin, searchEl, false);
+        new SearchUI(this.app, this.plugin, searchEl, true);
     }
 }
