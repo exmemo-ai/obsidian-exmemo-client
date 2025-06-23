@@ -25,7 +25,7 @@ export function parseKeywords(searchValue: string): string[] {
 }
 
 function createSnippet(content: string, index: number, matchLength: number): string {
-    const paragraphs = content.split(/\n\s*\n|\n\s*\*/);
+    const paragraphs = content.split('\n').filter(line => line.trim() !== '');
     let currentPos = 0;
     let targetParagraph = '';
     let paragraphStart = 0;

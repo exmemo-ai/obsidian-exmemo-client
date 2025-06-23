@@ -18,6 +18,7 @@ export async function searchRemoteData(
     ctype: string = '',
     etype: string = '',
     status: string = '',
+    searchMethod: string = 'keywordOnly',
     auto_login: boolean = true
 ): Promise<RemoteSearchResult[]> {
     if (!plugin) {
@@ -43,6 +44,9 @@ export async function searchRemoteData(
     if (keyword && keyword != '') {
         url.searchParams.append('keyword', keyword);
         new Notice(t('search') + ': ' + keyword);
+    }
+    if (searchMethod && searchMethod != '' && searchMethod != 'keywordOnly') {
+        url.searchParams.append('method', searchMethod);
     }
 
     url.searchParams.append('max_count', count.toString());

@@ -194,7 +194,8 @@ search
 
 .type-container,
 .folder-container,
-.date-range-container {
+.date-range-container,
+.search-method-container {
     display: flex;
     align-items: center;
     gap: 2px;
@@ -203,7 +204,8 @@ search
 }
 
 .type-select,
-.folder-select {
+.folder-select,
+.search-method-select {
     flex-grow: 1;
     min-width: 0;
 }

@@ -94,6 +94,10 @@ export default {
     "localOrRemote": "本地/远程",
     "searching": "正在搜索...",
     "searchError": "搜索错误",
+    "searchMethod": "方式",
+    "keywordOnly": "仅关键字搜索",
+    "fuzzySearch": "模糊搜索", 
+    "embeddingSearch": "词嵌入搜索",
     // remote note viewer
     "loadingNoteContent": "正在加载笔记内容...",
     "missingNoteIndex": "缺少笔记索引（idx）",

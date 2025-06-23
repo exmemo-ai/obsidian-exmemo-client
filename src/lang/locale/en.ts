@@ -93,6 +93,10 @@ export default {
   "localOrRemote": "Local/Remote",
   "searching": "Searching...",
   "searchError": "Search error",
+  "searchMethod": "Method",
+  "keywordOnly": "Keyword only",
+  "fuzzySearch": "Fuzzy search",
+  "embeddingSearch": "Embedding search",
   // remote note viewer
   "loadingNoteContent": "Loading note content...",
   "missingNoteIndex": "Missing note index (idx)",

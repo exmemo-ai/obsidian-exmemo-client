@@ -25,6 +25,7 @@ export class SearchUI {
     isRemoteSearch: boolean;
     typeSelectEl: HTMLSelectElement;
     typeContainer: HTMLElement;
+    searchMethodSelectEl: HTMLSelectElement;
     searchBtnControlsEl: HTMLElement;
     folderContainer: HTMLElement;
     clearButtonEl: HTMLButtonElement;
@@ -204,6 +205,31 @@ export class SearchUI {
         this.dateEndEl = datesWrapper.createEl('input', { cls: 'date-input-ex' });
         this.dateEndEl.type = 'date';
 
+        // add search method
+        const searchMethodContainer = this.advancedSearchEl.createEl('div', { cls: 'search-method-container' });
+        const searchMethodLabel = searchMethodContainer.createEl('label', { cls: 'search-label' });
+        searchMethodLabel.textContent = t('searchMethod') + ":";
+
+        this.searchMethodSelectEl = searchMethodContainer.createEl('select', { cls: 'search-method-select' });
+        
+        const searchMethods = [
+            { value: 'keywordOnly', key: 'keywordOnly' },
+            { value: 'fuzzySearch', key: 'fuzzySearch' },
+            { value: 'embeddingSearch', key: 'embeddingSearch' }
+        ];
+        
+        for (const method of searchMethods) {
+            const opt = this.searchMethodSelectEl.createEl('option');
+            opt.value = method.value;
+            opt.textContent = t(method.key as any) || method.key;
+        }
+
+        this.searchMethodSelectEl.value = this.plugin.settings.lastSearchMethod || 'keywordOnly';
+        this.searchMethodSelectEl.addEventListener('change', () => {
+            this.plugin.settings.lastSearchMethod = this.searchMethodSelectEl.value;
+            this.plugin.saveSettings();
+        });
+
         this.advancedSearchVisible = !!this.plugin.settings.advancedSearchVisible;
         this.advancedSearchEl.style.display = this.advancedSearchVisible ? 'block' : 'none';
         advancedToggleEl.textContent = this.advancedSearchVisible ? '▲' : '▼';
@@ -235,6 +261,20 @@ export class SearchUI {
         if (this.folderContainer) {
             this.folderContainer.style.display = this.isRemoteSearch ? 'none' : 'flex';
         }
+        
+        if (this.searchMethodSelectEl) {
+            const options = this.searchMethodSelectEl.options;
+            if (options.length >= 3) {
+                const embeddingOption = options[2] as HTMLOptionElement;
+                embeddingOption.disabled = !this.isRemoteSearch;
+                
+                if (!this.isRemoteSearch && this.searchMethodSelectEl.value === 'embeddingSearch') {
+                    this.searchMethodSelectEl.value = 'keywordOnly';
+                    this.plugin.settings.lastSearchMethod = 'keywordOnly';
+                    this.plugin.saveSettings();
+                }
+            }
+        }
     }
 
     async executeSearch() {
@@ -252,6 +292,7 @@ export class SearchUI {
         const endDate = this.dateEndEl.value;
         const selectedFolder = this.folderSelectEl.value;
         const caseSensitive = this.caseSensitiveChecked;
+        const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
 
         this.saveSearchToHistory(keyword);
         this.updateHistoryKeywords();
@@ -275,7 +316,8 @@ export class SearchUI {
                     101,
                     '', // ctype
                     selectedType,
-                    '' // status
+                    '', // status
+                    searchMethod
                 );
                 console.log('Remote search results:', results);
                 this.displayRemoteResults(results);
@@ -293,7 +335,8 @@ export class SearchUI {
                 endDate,
                 selectedFolder,
                 caseSensitive,
-                101
+                101,
+                searchMethod
             );
             this.displayLocalResults(results);
         }

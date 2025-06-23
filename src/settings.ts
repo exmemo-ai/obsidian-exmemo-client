@@ -18,6 +18,7 @@ export interface ExMemoSettings {
 	exclude: string;
 	isRemoteSearch: boolean;
 	lastSearchType: string;
+	lastSearchMethod: string;
 	localSearchHistory: Record<string, SearchParams>;
 	advancedSearchVisible: boolean;
 }
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: ExMemoSettings = {
 	exclude: '',
 	isRemoteSearch: false,
 	lastSearchType: 'note',
+	lastSearchMethod: 'keywordOnly',
 	localSearchHistory: {},
 	advancedSearchVisible: false,
 }
