@@ -10,6 +10,50 @@ export interface BaseSearchResult {
     idx: string | null;
 }
 
+export interface ParsedSearchInput {
+    searchType: 'tag' | 'file' | 'keyword';
+    searchValue: string;
+    keywordArray: string[];
+}
+
+export function parseSearchInput(keyword: string): ParsedSearchInput {
+    let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
+    let searchValue = keyword;
+    let keywordArray: string[] = [];
+
+    if (keyword.startsWith('tag:')) {
+        searchType = 'tag';
+        searchValue = keyword.substring(4).trim();
+        
+        const tagTerms = searchValue.split(/\s+/).filter(term => term.length > 0);
+        for (const term of tagTerms) {
+            const formattedTag = term.startsWith('#') ? term : '#' + term;
+            keywordArray.push(formattedTag);
+        }
+        if (keywordArray.length === 0 && searchValue.trim()) {
+            const tagValue = searchValue.trim();
+            const formattedTag = tagValue.startsWith('#') ? tagValue : '#' + tagValue;
+            keywordArray.push(formattedTag);
+        }
+    } else if (keyword.startsWith('file:')) {
+        searchType = 'file';
+        searchValue = keyword.substring(5).trim();
+        keywordArray = [searchValue];
+    } else {
+        searchType = 'keyword';
+        searchValue = keyword;
+        keywordArray = parseKeywords(searchValue);
+    }
+
+    keywordArray = keywordArray.map(kw => kw.trim()).filter(kw => kw.length > 0);
+
+    return {
+        searchType,
+        searchValue,
+        keywordArray
+    };
+}
+
 export function parseKeywords(searchValue: string): string[] {
     const keywordArray: string[] = [];
     // Match phrases in quotes and words outside quotes

@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import { parseKeywords, extractSnippet, CONTENT_LIMIT, BaseSearchResult } from 'src/search_data';
+import { extractSnippet, CONTENT_LIMIT, BaseSearchResult, parseSearchInput } from 'src/search_data';
 
 export interface LocalSearchResult extends BaseSearchResult {
     tags: string[];
@@ -66,39 +66,10 @@ export async function searchLocalData(
     const files = app.vault.getMarkdownFiles();
     const enableFuzzySearch = searchMethod === 'fuzzySearch';
 
-    // Parse search type
-    let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
-    let searchValue = keyword;
+    // Parse search input
+    const parsedInput = parseSearchInput(keyword);
+    const { searchType, searchValue, keywordArray } = parsedInput;
 
-    if (keyword.startsWith('tag:')) {
-        searchType = 'tag';
-        searchValue = keyword.substring(4).trim();
-    }
-    else if (keyword.startsWith('file:')) {
-        searchType = 'file';
-        searchValue = keyword.substring(5).trim();
-    }
-
-    // Process keywords
-    let keywordArray: string[] = [];
-    if (searchType === 'keyword') {
-        keywordArray = parseKeywords(searchValue);
-    } else if (searchType === 'tag') {
-        const tagTerms = searchValue.split(/\s+/).filter(term => term.length > 0);
-        for (const term of tagTerms) {
-            const formattedTag = term.startsWith('#') ? term : '#' + term;
-            keywordArray.push(formattedTag);
-        }
-        if (keywordArray.length === 0 && searchValue.trim()) {
-            const tagValue = searchValue.trim();
-            const formattedTag = tagValue.startsWith('#') ? tagValue : '#' + tagValue;
-            keywordArray.push(formattedTag);
-        }
-    } else {
-        keywordArray = [searchValue];
-    }
-
-    keywordArray= keywordArray.map(kw => kw.trim()).filter(kw => kw.length > 0);
     if (keywordArray.length === 0) {
         return results;
     }

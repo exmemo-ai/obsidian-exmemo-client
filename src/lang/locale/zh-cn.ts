@@ -98,6 +98,7 @@ export default {
     "keywordOnly": "仅关键字搜索",
     "fuzzySearch": "模糊搜索", 
     "embeddingSearch": "词嵌入搜索",
+    "searchResultMenu": "搜索结果菜单",
     // remote note viewer
     "loadingNoteContent": "正在加载笔记内容...",
     "missingNoteIndex": "缺少笔记索引（idx）",

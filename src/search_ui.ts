@@ -1,9 +1,9 @@
-import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View } from 'obsidian';
+import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult } from './search_local_data';
 import { searchRemoteData } from './search_remote_data';
 import { highlightElement } from './search_result_highlight';
-import { parseKeywords, BaseSearchResult } from './search_data';
+import { BaseSearchResult, parseSearchInput } from './search_data';
 import { RemoteNoteViewerModal } from './remote_note_viewer';
 
 export class SearchUI {
@@ -320,7 +320,7 @@ export class SearchUI {
                     searchMethod
                 );
                 console.log('Remote search results:', results);
-                this.displayRemoteResults(results);
+                this.displayResults(results);
             } catch (error) {
                 console.error('Remote search error:', error);
                 this.displaySearchError();
@@ -338,7 +338,7 @@ export class SearchUI {
                 101,
                 searchMethod
             );
-            this.displayLocalResults(results);
+            this.displayResults(results);
         }
     }
 
@@ -457,13 +457,15 @@ export class SearchUI {
     }
 
     protected async openNote(addr: string) {
+        // open note in current vault
         await this.app.workspace.openLinkText(addr, '', true);
         await new Promise(resolve => setTimeout(resolve, 300));
 
         const searchValue = this.keywordInputEl.value;
-        if (searchValue.startsWith('tag:')) {
-            return;
-        } else if (searchValue.startsWith('file:')) {
+        const parsedInput = parseSearchInput(searchValue);
+        const searchType = parsedInput.searchType;
+        
+        if (searchType === 'tag' || searchType === 'file') {
             return;
         }
 
@@ -530,9 +532,9 @@ export class SearchUI {
     private createResultItem(
         parentEl: HTMLElement, 
         result: LocalSearchResult | BaseSearchResult, 
-        isLocal: boolean = true,
-        keywordArray?: string[],
-        caseSensitive?: boolean
+        searchType: 'tag' | 'file' | 'keyword',
+        keywordArray: string[],
+        caseSensitive: boolean
     ): void {
         const resultItemEl = parentEl.createEl('li', { cls: 'search-item' });
 
@@ -543,13 +545,15 @@ export class SearchUI {
         const titleRowEl = resultItemEl.createEl('div', { cls: 'search-title-row' });
         const titleEl = titleRowEl.createEl('div', { cls: 'search-item-title' });
         titleEl.textContent = result.title;
+        if (keywordArray && keywordArray.length > 0) 
+            highlightElement(titleEl, keywordArray, caseSensitive || false);
 
         const timeEl = titleRowEl.createEl('div', { cls: 'search-item-time' });
         timeEl.textContent = result.createdTime;
 
         const infoRowEl = resultItemEl.createEl('div', { cls: 'search-info-row' });
 
-        if (isLocal) {
+        if (!this.isRemoteSearch) {
             const localResult = result as LocalSearchResult;
             const pathEl = infoRowEl.createEl('div', { cls: 'search-item-path' });
             const filePath = localResult.file.path;
@@ -562,65 +566,76 @@ export class SearchUI {
                 const pathEl = infoRowEl.createEl('div', { cls: 'search-item-path' });
                 pathEl.textContent = remoteResult.addr;
             }
-            
             if (remoteResult.etype) {
                 const typeEl = infoRowEl.createEl('div', { cls: 'search-item-type' });
                 typeEl.textContent = t(`${remoteResult.etype || ''}`.trim() as any);
             }
         }
 
-        if (result.content) {
-            const contentEl = resultItemEl.createEl('div', { cls: 'search-content' });
-            
-            if (isLocal) {
+        if (result.content && searchType === 'keyword') {
+            const contentEl = resultItemEl.createEl('div', { cls: 'search-content' });            
+            if (!this.isRemoteSearch) {
                 contentEl.textContent = result.content;
-                if (keywordArray && keywordArray.length > 0) {
-                    highlightElement(titleEl, keywordArray, caseSensitive || false);
-                    highlightElement(contentEl, keywordArray, caseSensitive || false);
-                }
             } else {
                 contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
-                if (this.keywordInputEl.value) {
-                    highlightElement(contentEl, this.keywordInputEl.value, caseSensitive || false);
-                }
+            }
+            if (keywordArray && keywordArray.length > 0) {
+                highlightElement(contentEl, keywordArray, caseSensitive || false);
             }
         }
 
         resultItemEl.addClass('clickable');
     }
 
-    private createResultsHeader(isLocal: boolean, resultsCount: number, searchKeyword?: string): HTMLElement {
+    private createResultsHeader(results?: BaseSearchResult[]): HTMLElement {
         const headerEl = this.resultsContainerEl.createEl('div', { cls: 'results-header' });
-
+        const resultsCount = results ? results.length : 0;
+        const searchKeyword = this.keywordInputEl.value.trim();
         let searchTypeText = '';
-        if (isLocal && searchKeyword) {
-            if (searchKeyword.startsWith('tag:')) {
-                searchTypeText = t('tagSearch') || 'Tag search';
-            } else if (searchKeyword.startsWith('file:')) {
-                searchTypeText = t('fileSearch') || 'File search';
-            } else if (searchKeyword) {
-                searchTypeText = t('keywordSearch') || 'Keyword search';
+
+        if (!this.isRemoteSearch && searchKeyword) {
+            const parsedInput = parseSearchInput(searchKeyword);
+            const searchType = parsedInput.searchType;
+            
+            if (searchType === 'tag') {
+                searchTypeText = t('tagSearch');
+            } else if (searchType === 'file') {
+                searchTypeText = t('fileSearch');
+            } else if (searchType === 'keyword') {
+                searchTypeText = t('keywordSearch');
             }
         }
 
         const titleEl = headerEl.createEl('div', { cls: 'search-results-title' });
-        titleEl.textContent = isLocal 
+        titleEl.textContent = !this.isRemoteSearch 
             ? (searchTypeText ? `${searchTypeText}` : t('searchResults'))
             : (t('remoteSearchResults') || 'Remote Search Results');
 
         if (resultsCount > 0) {
+            const rightSection = headerEl.createEl('div', { cls: 'results-header-right' });
             const displayCount = resultsCount > 100 ? '100+' : resultsCount.toString();
-            headerEl.createEl('span', { cls: 'results-count' }).textContent = t('total') + ': ' + displayCount;
+            rightSection.createEl('span', { cls: 'results-count' }).textContent = t('total') + ': ' + displayCount;
+            
+            if (!this.isRemoteSearch && results && results.length > 0) {
+                const menuButton = rightSection.createEl('button', { 
+                    cls: 'results-menu-button',
+                    attr: { title: t('searchResultMenu') }
+                });
+                menuButton.textContent = '⋮';
+                menuButton.addEventListener('click', (event) => {
+                    this.triggerSearchResultsMenu(results as LocalSearchResult[], event);
+                });
+            }
         }
 
         return headerEl;
     }
 
-    protected displayLocalResults(results: LocalSearchResult[]) {
+    protected displayResults(results: BaseSearchResult[]) {
         this.resultsContainerEl.empty();
 
         const keyword = this.keywordInputEl.value;
-        this.createResultsHeader(true, results.length, keyword);
+        this.createResultsHeader(results);
 
         if (results.length === 0) {
             this.resultsContainerEl.createEl('p').textContent = t('noResultsFound');
@@ -628,47 +643,50 @@ export class SearchUI {
         }
 
         const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'search-results' });
-        const displayResults = results.length > 100 ? results.slice(0, 100) : results;
+        const showResults = results.length > 100 ? results.slice(0, 100) : results;
         const caseSensitive = this.caseSensitiveChecked;
         
-        const hasKeywordInput = !!keyword;
         let keywordArray: string[] = [];
+        let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
         
-        if (hasKeywordInput) {
-            let searchValue = keyword;
-            if (keyword.startsWith('tag:')) {
-                searchValue = keyword.substring(4).trim();
-                keywordArray = [searchValue];
-            } else if (keyword.startsWith('file:')) {
-                searchValue = keyword.substring(5).trim();
-                keywordArray = [searchValue];
-            } else {
-                keywordArray = parseKeywords(searchValue);
-            }
+        if (!!keyword) {
+            const parsedInput = parseSearchInput(keyword);
+            keywordArray = parsedInput.keywordArray;
+            searchType = parsedInput.searchType;
         }
 
-        displayResults.forEach(result => {
-            this.createResultItem(resultListEl, result, true, hasKeywordInput ? keywordArray : undefined, caseSensitive);
+        showResults.forEach(result => {
+            this.createResultItem(resultListEl, result, searchType, keywordArray, caseSensitive);
         });
     }
 
-    protected displayRemoteResults(results: BaseSearchResult[]) {
-        this.resultsContainerEl.empty();
+    private triggerSearchResultsMenu(results: LocalSearchResult[], event: MouseEvent) {
+        const menu = new Menu();
+        const vChildren = {
+            children: results.map(result => ({
+                file: result.file
+            }))
+        };
+        
+        const leafData = {
+            dom: {
+                vChildren: vChildren
+            },
+            searchQuery: {
+                query: this.keywordInputEl.value
+            },
+            /* // for my plugins, not used
+            view: {
+                searchResults: results,
+                searchQuery: this.keywordInputEl.value
+            },*/
+            getQuery: () => {
+                return this.keywordInputEl.value;
+            }
+        };
 
-        this.createResultsHeader(false, results.length);
-
-        if (results.length === 0) {
-            this.resultsContainerEl.createEl('p').textContent = t('noResultsFound');
-            return;
-        }
-
-        const resultListEl = this.resultsContainerEl.createEl('ul', { cls: 'search-results' });
-        const displayResults = results.length > 100 ? results.slice(0, 100) : results;
-        const caseSensitive = this.caseSensitiveChecked;
-
-        displayResults.forEach(result => {
-            this.createResultItem(resultListEl, result, false, undefined, caseSensitive);
-        });
+        this.app.workspace.trigger('search:results-menu' as any, menu, leafData);        
+        menu.showAtMouseEvent(event);
     }
 }
 

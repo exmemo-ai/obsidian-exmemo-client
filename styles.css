@@ -247,6 +247,12 @@ search
     align-items: center;
 }
 
+.results-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .search-results-title {
     font-size: 1.1em;
     color: var(--text-muted);
@@ -254,6 +260,27 @@ search
 
 .results-count {
     color: var(--text-muted);
+}
+
+.results-menu-button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 16px;
+    line-height: 1;
+    transition: background-color 0.2s ease;
+}
+
+.results-menu-button:hover {
+    background-color: var(--background-modifier-hover);
+    color: var(--text-normal);
+}
+
+.results-menu-button:active {
+    background-color: var(--background-modifier-active);
 }
 
 .search-results {

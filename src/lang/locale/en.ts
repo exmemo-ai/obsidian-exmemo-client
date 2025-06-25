@@ -97,6 +97,7 @@ export default {
   "keywordOnly": "Keyword only",
   "fuzzySearch": "Fuzzy search",
   "embeddingSearch": "Embedding search",
+  "searchResultMenu": "Search result menu",
   // remote note viewer
   "loadingNoteContent": "Loading note content...",
   "missingNoteIndex": "Missing note index (idx)",

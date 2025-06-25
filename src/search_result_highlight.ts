@@ -1,6 +1,4 @@
-export function highlightElement(element: HTMLElement, keywords: string | string[], caseSensitive: boolean = false) {
-
-    const keywordArray = Array.isArray(keywords) ? keywords : [keywords];
+export function highlightElement(element: HTMLElement, keywordArray: string[], caseSensitive: boolean = false) {
     const validKeywords = keywordArray.filter(keyword => keyword && keyword.trim() !== '');
     if (!validKeywords.length) return;
 

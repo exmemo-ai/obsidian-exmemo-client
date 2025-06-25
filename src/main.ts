@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Plugin, WorkspaceLeaf } from 'obsidian';
+import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Menu } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
 import { SearchModal } from 'src/search_remote';
@@ -19,6 +19,8 @@ export default class ExMemoPlugin extends Plugin {
 		registerCustomIcons();
 		this.notice = new ExMemoNotice();
 		this.sync = new Sync(this, this.app, this.settings);
+
+		//this.debugSearchLeaf(); // for debug
 
 		this.addCommand({
 			id: 'search',
@@ -112,4 +114,38 @@ export default class ExMemoPlugin extends Plugin {
 					interval * 60 * 1000);
 		}
 	}
+
+    // 添加调试方法
+    private debugSearchLeaf() {
+        this.registerEvent(
+            this.app.workspace.on('search:results-menu' as any, (menu: Menu, leaf: any) => {
+                console.log('=== Search Leaf Debug Info ===');
+                console.log('Search leaf structure:', leaf);
+                console.log('Leaf keys:', Object.keys(leaf));
+                
+                if (leaf.dom) {
+                    console.log('DOM structure:', leaf.dom);
+                    if (leaf.dom.vChildren) {
+                        console.log('vChildren:', leaf.dom.vChildren);
+                    }
+                }
+                
+                if (leaf.view) {
+                    console.log('View structure:', leaf.view);
+                    console.log('View keys:', Object.keys(leaf.view));
+                }
+                
+                if (leaf.searchQuery) {
+                    console.log('Search query:', leaf.searchQuery);
+                }
+                
+                // 检查是否有 getQuery 方法
+                if (typeof leaf.getQuery === 'function') {
+                    console.log('getQuery() result:', leaf.getQuery());
+                }
+                
+                console.log('=== End Debug Info ===');
+            })
+        );
+    }
 }
