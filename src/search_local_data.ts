@@ -1,11 +1,8 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, getAllTags } from 'obsidian';
 import { extractSnippet, CONTENT_LIMIT, BaseSearchResult, parseSearchInput } from 'src/search_data';
 
 export interface LocalSearchResult extends BaseSearchResult {
-    tags: string[];
     file: TFile;
-    keywordIndex?: number;
-    keywordLength?: number;
     titleMatch?: number;
     keywordCount?: number;
     consecutiveKeywordScore?: number;
@@ -73,7 +70,7 @@ export async function searchLocalData(
     if (keywordArray.length === 0) {
         return results;
     }
-    //console.log('keywordArray', keywordArray)
+    //console.log('keywordArray', keywordArray, searchType)
 
     for (const file of files) {
         if (folderPath && !file.path.startsWith(folderPath + '/') && file.path !== folderPath) {
@@ -88,23 +85,19 @@ export async function searchLocalData(
         if (!matchesDateRange) continue;
 
         if (keyword) {
-            const content = await app.vault.read(file);
-
             let matches = false;
-            let keywordIndex = -1;
-            let titleIndex = -1;
             let fuzzyScore = 0;
-            let contentToSearch = content;
+            let content = '';
+            let contentToSearch = '';
             let titleToSearch = file.basename;
 
             if (!caseSensitive) {
-                contentToSearch = content.toLowerCase();
                 titleToSearch = file.basename.toLowerCase();
             }
 
             switch (searchType) {
                 case 'tag':
-                    const tags = extractTags(content);
+                    const tags = extractTags(file);
                     matches = keywordArray.every(tagToFind => {
                         const normalizedTagToFind = !caseSensitive ? tagToFind.toLowerCase() : tagToFind;
                         return tags.some(tag => {
@@ -116,12 +109,14 @@ export async function searchLocalData(
 
                 case 'file':
                     const fileValueToSearch = !caseSensitive ? searchValue.toLowerCase() : searchValue;
-                    titleIndex = titleToSearch.indexOf(fileValueToSearch);
-                    matches = titleIndex !== -1;
+                    matches = titleToSearch.indexOf(fileValueToSearch) !== -1;
                     break;
 
                 case 'keyword':
                 default:
+                    content = await app.vault.read(file);
+                    contentToSearch = !caseSensitive ? content.toLowerCase() : content;
+                    
                     if (enableFuzzySearch) {
                         let totalFuzzyScore = 0;
                         let hasMatch = false;
@@ -135,9 +130,6 @@ export async function searchLocalData(
                             if (exactInContent || exactInTitle) {
                                 hasMatch = true;
                                 totalFuzzyScore += 1000;
-                                if (keywordIndex === -1 && exactInContent) {
-                                    keywordIndex = contentToSearch.indexOf(kwToSearch);
-                                }
                             } else {
                                 const contentFuzzy = fuzzyMatch(contentToSearch, kwToSearch);
                                 const titleFuzzy = fuzzyMatch(titleToSearch, kwToSearch);
@@ -146,9 +138,6 @@ export async function searchLocalData(
                                 if (maxScore > 50) {
                                     hasMatch = true;
                                     totalFuzzyScore += maxScore;
-                                    if (keywordIndex === -1 && contentFuzzy.score >= titleFuzzy.score) {
-                                        keywordIndex = contentFuzzy.matchIndex;
-                                    }
                                 }
                             }
                         }
@@ -162,39 +151,49 @@ export async function searchLocalData(
                             const inTitle = titleToSearch.indexOf(kwToSearch) !== -1;
                             return inContent || inTitle;
                         });
-
-                        if (matches && keywordArray.length > 0) {
-                            const firstKw = !caseSensitive ? keywordArray[0].toLowerCase() : keywordArray[0];
-                            keywordIndex = contentToSearch.indexOf(firstKw);
-                        }
                     }
                     break;
             }
 
             if (!matches) continue;
 
-            // Extract appropriate snippet
             let snippet = "";
-            if (searchType === 'tag' || searchType === 'file') {
-                snippet = content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : "");
-            } else {
+            if (searchType === 'keyword') {
                 snippet = extractSnippet(content, keywordArray, caseSensitive);
             }
 
-            const keywordCount = keywordArray.reduce((count, kw) => {
-                const kwToSearch = !caseSensitive ? kw.toLowerCase() : kw;
-                const regex = new RegExp(kwToSearch, 'g');
-                return count + (contentToSearch.match(regex)?.length || 0);
-            }, 0);
+            let keywordCount = 0;
+            let consecutiveKeywordScore = 0;
+            
+            if (searchType === 'keyword') {
+                keywordCount = keywordArray.reduce((count, kw) => {
+                    const kwToSearch = !caseSensitive ? kw.toLowerCase() : kw;
+                    const regex = new RegExp(kwToSearch, 'g');
+                    const searchContent = contentToSearch || (!caseSensitive ? content.toLowerCase() : content);
+                    return count + (searchContent.match(regex)?.length || 0);
+                }, 0);
 
-            const consecutiveKeywordScore = keywordArray.reduce((score, kw, index) => {
-                if (index === 0) return score;
-                const prevKw = keywordArray[index - 1];
-                const prevKwToSearch = !caseSensitive ? prevKw.toLowerCase().replace(/\s+/g, '') : prevKw.replace(/\s+/g, '');
-                const kwToSearch = !caseSensitive ? kw.toLowerCase().replace(/\s+/g, '') : kw.replace(/\s+/g, '');
-                const consecutiveRegex = new RegExp(`${prevKwToSearch}\\s*${kwToSearch}|${prevKwToSearch}${kwToSearch}`, 'g');
-                return score + (contentToSearch.match(consecutiveRegex)?.length || 0);
-            }, 0);
+                consecutiveKeywordScore = keywordArray.reduce((score, kw, index) => {
+                    if (index === 0) return score;
+                    const prevKw = keywordArray[index - 1];
+                    const prevKwToSearch = !caseSensitive ? prevKw.toLowerCase().replace(/\s+/g, '') : prevKw.replace(/\s+/g, '');
+                    const kwToSearch = !caseSensitive ? kw.toLowerCase().replace(/\s+/g, '') : kw.replace(/\s+/g, '');
+                    const consecutiveRegex = new RegExp(`${prevKwToSearch}\\s*${kwToSearch}|${prevKwToSearch}${kwToSearch}`, 'g');
+                    const searchContent = contentToSearch || (!caseSensitive ? content.toLowerCase() : content);
+                    return score + (searchContent.match(consecutiveRegex)?.length || 0);
+                }, 0);
+            }
+
+            let titleMatch = 0;
+            if (searchType === 'file' && matches) {
+                titleMatch = 1;
+            } else if (searchType === 'keyword') {
+                const allKeywordsInTitle = keywordArray.every(kw => {
+                    const kwToSearch = !caseSensitive ? kw.toLowerCase() : kw;
+                    return titleToSearch.includes(kwToSearch);
+                });
+                titleMatch = allKeywordsInTitle ? 1 : 0;
+            }
 
             results.push({
                 title: file.basename,
@@ -205,36 +204,15 @@ export async function searchLocalData(
                 isRemote: false,
                 idx: null,
                 // others
-                tags: extractTags(content),
                 file: file,
-                keywordIndex: keywordIndex === -1 ? undefined : keywordIndex,
-                keywordLength: keywordArray.length > 0 ? keywordArray[0].length : 0,
-                titleMatch: titleToSearch.includes(keywordArray[0]) ? 1 : 0,
+                titleMatch,
                 keywordCount,
                 consecutiveKeywordScore,
                 fuzzyScore: enableFuzzySearch ? fuzzyScore : undefined
             });
-
-            if ((searchType === 'tag' || searchType === 'file') && results.length >= count) {
-                break; // Limit results to 'count'
-            }
-        } else {
-            const content = await app.vault.read(file);
-            results.push({
-                title: file.basename,
-                createdTime: createdTime,
-                addr: file.path,
-                etype: 'note',
-                content: content.substring(0, CONTENT_LIMIT) + (content.length > CONTENT_LIMIT ? "..." : ""),
-                isRemote: false,
-                idx: null,
-                // others
-                tags: extractTags(content),
-                file: file,
-            });
         }
         if (results.length >= count) {
-            break; // Limit results to 'count'
+            break;
         }
     }
 
@@ -267,43 +245,12 @@ export async function searchLocalData(
     return results.slice(0, count);
 }
 
-export function extractTags(content: string): string[] {
-    const tags: string[] = [];
-
-    const frontmatterMatch = content.match(/^---\s*\n([\s\S]*?)\n\s*---/);
-    if (frontmatterMatch && frontmatterMatch[1]) {
-        const frontmatter = frontmatterMatch[1];
-
-        const inlineArrayMatch = frontmatter.match(/tags\s*:\s*\[(.*?)\]/);
-        if (inlineArrayMatch && inlineArrayMatch[1]) {
-            const tagList = inlineArrayMatch[1].split(',').map(tag => tag.trim());
-            for (const tag of tagList) {
-                const cleanTag = tag.replace(/^['"]|['"]$/g, '');
-                if (cleanTag) {
-                    const formattedTag = cleanTag.startsWith('#') ? cleanTag : '#' + cleanTag;
-                    tags.push(formattedTag);
-                }
-            }
-        } else {
-            const tagsSection = frontmatter.match(/tags\s*:\s*\n((?:\s+-.*\n?)+)/);
-            if (tagsSection && tagsSection[1]) {
-                const tagMatches = tagsSection[1].matchAll(/\s+-\s*([^\n]+)/g);
-                for (const match of tagMatches) {
-                    if (match[1]) {
-                        const cleanTag = match[1].trim().replace(/^['"]|['"]$/g, '');
-                        if (cleanTag) {
-                            const formattedTag = cleanTag.startsWith('#') ? cleanTag : '#' + cleanTag;
-                            tags.push(formattedTag);
-                        }
-                    }
-                }
-            }
-        }
+export function extractTags(file: TFile): string[] {
+    const cachedMetadata = this.app.metadataCache.getFileCache(file);
+    if (cachedMetadata) {
+        const tags = getAllTags(cachedMetadata);
+        return tags ? tags : [];
     }
-
-    const tagRegex = /#[^\s#]+/g;
-    const matches = content.match(tagRegex) || [];
-
-    return [...new Set([...tags, ...matches])];
+    return [];
 }
 
