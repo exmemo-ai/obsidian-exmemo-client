@@ -98,6 +98,10 @@ export async function searchLocalData(
         keywordArray = [searchValue];
     }
 
+    keywordArray= keywordArray.map(kw => kw.trim()).filter(kw => kw.length > 0);
+    if (keywordArray.length === 0) {
+        return results;
+    }
     //console.log('keywordArray', keywordArray)
 
     for (const file of files) {
