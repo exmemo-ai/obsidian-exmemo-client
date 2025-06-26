@@ -105,6 +105,7 @@ export default {
     "fuzzySearch": "模糊搜索", 
     "embeddingSearch": "词嵌入搜索",
     "searchResultMenu": "搜索结果菜单",
+    'searchServerNotSupportEmbedding': '服务器不支持词嵌入搜索，请在服务器端启用词嵌入功能。',
     // search settings
     'searchSettings': '搜索设置',
     'searchSettingsDesc': '配置搜索行为和搜索排除规则',

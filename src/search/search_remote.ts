@@ -15,6 +15,7 @@ export async function getDataList(plugin: any, ctype: string, etype: string,
         ctype,
         etype,
         status,
+        'keywordOnly',
         auto_login
     );
     if (data) {

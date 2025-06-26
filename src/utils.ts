@@ -82,7 +82,7 @@ async function ensureToken(plugin: any): Promise<boolean> {
     return false;
 }
 
-export async function requestWithToken(plugin: any, requestOptions: any, autoLogin: boolean = true): Promise<any> {
+export async function requestWithToken(plugin: any, requestOptions: any, autoLogin: boolean = true, notice: boolean = true): Promise<any> {
     if (!await ensureToken(plugin)) {
         return null;
     }
@@ -108,7 +108,9 @@ export async function requestWithToken(plugin: any, requestOptions: any, autoLog
         } else {
             console.error(err);
             let showinfo = t('connectFailed') + ': ' + err.status;
-            plugin.showNotice('error', showinfo, { timeout: 3000 });
+            if (notice) {
+                plugin.showNotice('error', showinfo, { timeout: 3000 });
+            }
         }
         throw err;
     }

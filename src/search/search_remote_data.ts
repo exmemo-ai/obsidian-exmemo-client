@@ -53,6 +53,9 @@ export async function searchRemoteData(
     if (searchMethod && searchMethod != '' && searchMethod != 'keywordOnly') {
         url.searchParams.append('method', searchMethod);
     }
+    if (plugin.settings.searchExclude && plugin.settings.searchExclude.trim() !== '') {
+        url.searchParams.append('exclude', plugin.settings.searchExclude.trim());
+    }
 
     url.searchParams.append('max_count', count.toString());
 
@@ -66,7 +69,7 @@ export async function searchRemoteData(
     };
 
     try {
-        const response = await requestWithToken(plugin, requestOptions, auto_login);
+        const response = await requestWithToken(plugin, requestOptions, auto_login, false);
         const rawData = await response.json;
         const keywords = parseKeywords(keyword);
         return rawData.map((item: any) => ({
@@ -81,7 +84,11 @@ export async function searchRemoteData(
             ctype: item.ctype,
         }));
     } catch (err) {
-        plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
+        if (err.status === 422) {
+            plugin.showNotice('search', t('searchServerNotSupportEmbedding'), { timeout: 3000 });
+        } else {
+            plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
+        }
         console.error(err);
         return [];
     }
@@ -142,4 +149,3 @@ function formatNoteResult(plugin: Plugin, item: RemoteSearchResult, keyword: str
 
     return desc;
 }
-

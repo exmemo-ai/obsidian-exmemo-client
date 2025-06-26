@@ -104,6 +104,7 @@ export default {
   "fuzzySearch": "Fuzzy search",
   "embeddingSearch": "Embedding search",
   "searchResultMenu": "Search result menu",
+  'searchServerNotSupportEmbedding': 'Server does not support embedding search, please enable embedding feature on the server side.',
   // search settings
   'searchSettings': 'Search Settings',
   'searchSettingsDesc': 'Configure search behavior and search exclusion rules',
