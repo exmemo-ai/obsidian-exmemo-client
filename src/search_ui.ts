@@ -336,7 +336,8 @@ export class SearchUI {
                 selectedFolder,
                 caseSensitive,
                 101,
-                searchMethod
+                searchMethod,
+                this.plugin.settings.searchExclude
             );
             this.displayResults(results);
         }
@@ -524,7 +525,11 @@ export class SearchUI {
                 addr = result.addr;
             }
             if (addr) {
-                await this.openNote(addr);
+                if (this.plugin.settings.searchOpenInModal) {
+                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+                } else {
+                    await this.openNote(addr);
+                }
             }
         }
     }
@@ -546,7 +551,7 @@ export class SearchUI {
         const titleEl = titleRowEl.createEl('div', { cls: 'search-item-title' });
         titleEl.textContent = result.title;
         if (keywordArray && keywordArray.length > 0) 
-            highlightElement(titleEl, keywordArray, caseSensitive || false);
+            highlightElement(titleEl, keywordArray, true, caseSensitive || false);
 
         const timeEl = titleRowEl.createEl('div', { cls: 'search-item-time' });
         timeEl.textContent = result.createdTime;
@@ -580,7 +585,7 @@ export class SearchUI {
                 contentEl.textContent = result.content.substring(0, 200) + (result.content.length > 200 ? '...' : '');
             }
             if (keywordArray && keywordArray.length > 0) {
-                highlightElement(contentEl, keywordArray, caseSensitive || false);
+                highlightElement(contentEl, keywordArray, false, caseSensitive || false);
             }
         }
 

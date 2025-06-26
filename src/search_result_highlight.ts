@@ -1,4 +1,4 @@
-export function highlightElement(element: HTMLElement, keywordArray: string[], caseSensitive: boolean = false) {
+export function highlightElement(element: HTMLElement, keywordArray: string[], isTitle: boolean = false, caseSensitive: boolean = false) {
     const validKeywords = keywordArray.filter(keyword => keyword && keyword.trim() !== '');
     if (!validKeywords.length) return;
 
@@ -53,7 +53,7 @@ export function highlightElement(element: HTMLElement, keywordArray: string[], c
             }
             
             const highlightSpan = document.createElement('span');
-            highlightSpan.className = 'search-highlight';
+            highlightSpan.className = isTitle ? 'search-highlight-title' : 'search-highlight-content';
             highlightSpan.textContent = text.substring(index, index + length);
             fragment.appendChild(highlightSpan);
             

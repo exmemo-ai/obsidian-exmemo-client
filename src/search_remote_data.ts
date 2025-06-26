@@ -25,6 +25,11 @@ export async function searchRemoteData(
         throw new Error('ExMemo plugin not found');
     }
 
+    if (!plugin.settings.url || plugin.settings.url.trim() === '') {
+        new Notice(t('pleaseConfigureServer'), 5000);
+        return [];
+    }
+
     const url = new URL(plugin.settings.url + '/api/entry/data/');
     if (ctype && ctype != '') {
         url.searchParams.append('ctype', ctype);

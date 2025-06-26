@@ -367,9 +367,12 @@ search
     color: var(--text-accent);
 }
 
-.search-highlight {
+.search-highlight-title {
     color: var(--text-accent);
-    font-weight: bold;
+}
+
+.search-highlight-content {
+    color: var(--interactive-accent);
 }
 
 .clickable {

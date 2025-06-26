@@ -49,6 +49,44 @@ function fuzzyMatch(text: string, pattern: string): { score: number; matchIndex:
     return { score, matchIndex };
 }
 
+function shouldExcludeFile(filePath: string, excludeRules: string): boolean {
+    if (!excludeRules || excludeRules.trim() === '') {
+        return false;
+    }
+    
+    const rules = excludeRules.split(',').map(rule => rule.trim()).filter(rule => rule !== '');    
+    for (const rule of rules) {
+        const regexPattern = rule
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*/g, '.*');
+        
+        const regex = new RegExp(`^${regexPattern}$`);
+        
+        // 检查完整路径是否匹配
+        if (regex.test(filePath)) {
+            return true;
+        }
+        
+        // 检查路径的每个部分是否匹配
+        const pathParts = filePath.split('/');
+        for (const part of pathParts) {
+            if (regex.test(part)) {
+                return true;
+            }
+        }
+        
+        // 检查每个目录层级的相对路径是否匹配
+        for (let i = 0; i < pathParts.length; i++) {
+            const partialPath = pathParts.slice(i).join('/');
+            if (regex.test(partialPath)) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
 export async function searchLocalData(
     app: App,
     keyword: string,
@@ -57,7 +95,8 @@ export async function searchLocalData(
     folderPath: string = '',
     caseSensitive: boolean = false,
     count: number = 100,
-    searchMethod: string = 'keywordOnly'
+    searchMethod: string = 'keywordOnly',
+    searchExclude: string = ''
 ): Promise<LocalSearchResult[]> {
     const results: LocalSearchResult[] = [];
     const files = app.vault.getMarkdownFiles();
@@ -73,6 +112,10 @@ export async function searchLocalData(
     //console.log('keywordArray', keywordArray, searchType)
 
     for (const file of files) {
+        if (shouldExcludeFile(file.path, searchExclude)) {
+            continue;
+        }
+        
         if (folderPath && !file.path.startsWith(folderPath + '/') && file.path !== folderPath) {
             continue;
         }

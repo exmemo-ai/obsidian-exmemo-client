@@ -96,6 +96,7 @@ function createSnippet(content: string, index: number, matchLength: number): str
                (targetParagraph.length > CONTENT_LIMIT ? "..." : "");
     }
     
+    //console.log(`Target paragraph: "${targetParagraph}" at index ${index}, posInParagraph: ${posInParagraph}, matchLength: ${matchLength}`);
     const sentenceMatches = [...targetParagraph.matchAll(/[^.!?。！？]+[.!?。！？]|[^.!?。！？]+$/g)];
     let targetSentence = '';
     let sentenceStart = 0;
@@ -114,13 +115,15 @@ function createSnippet(content: string, index: number, matchLength: number): str
     }
     
     if (!targetSentence) {
-        const snippet = targetParagraph.substring(posInParagraph, posInParagraph + CONTENT_LIMIT);
-        return snippet + (snippet.length < CONTENT_LIMIT ? "" : "...");
+        const maxLength = Math.min(CONTENT_LIMIT, targetParagraph.length - posInParagraph);
+        const snippet = targetParagraph.substring(posInParagraph, posInParagraph + maxLength);
+        return snippet + (posInParagraph + maxLength < targetParagraph.length ? "..." : "");
     }
     
-    const snippetStart = sentenceStart;
-    const snippet = content.substring(snippetStart, snippetStart + CONTENT_LIMIT);
-    return snippet + (snippetStart + CONTENT_LIMIT < content.length ? "..." : "");
+    const snippetStart = sentencePosInParagraph;
+    const maxLength = Math.min(CONTENT_LIMIT, targetParagraph.length - snippetStart);
+    const snippet = targetParagraph.substring(snippetStart, snippetStart + maxLength);
+    return snippet + (snippetStart + maxLength < targetParagraph.length ? "..." : "");
 }
 
 export function extractSnippet(content: string, keywords: string[], caseSensitive: boolean = false): string {
