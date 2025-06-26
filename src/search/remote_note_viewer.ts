@@ -1,7 +1,7 @@
 import { App, Modal, Component, MarkdownRenderer, Notice } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { requestWithToken } from "src/utils";
-import { parseKeywords } from "src/search_data";
+import { parseKeywords } from "src/search/search_data";
 
 export class RemoteNoteViewerModal extends Modal {
     private plugin: any;

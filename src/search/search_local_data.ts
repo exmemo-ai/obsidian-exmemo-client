@@ -1,5 +1,5 @@
 import { App, TFile, getAllTags } from 'obsidian';
-import { extractSnippet, CONTENT_LIMIT, BaseSearchResult, parseSearchInput } from 'src/search_data';
+import { extractSnippet, CONTENT_LIMIT, BaseSearchResult, parseSearchInput } from 'src/search/search_data';
 
 export interface LocalSearchResult extends BaseSearchResult {
     file: TFile;

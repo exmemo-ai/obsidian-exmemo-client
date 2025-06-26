@@ -1,6 +1,6 @@
 import { App, Modal } from 'obsidian';
 import { t } from "src/lang/helpers"
-import { searchRemoteData, writeSearchResultsToEditor } from "src/search_remote_data";
+import { searchRemoteData, writeSearchResultsToEditor } from "src/search/search_remote_data";
 
 export async function getDataList(plugin: any, ctype: string, etype: string,
     status: string, keyword: string, maxCount = '', startDate = '', endDate = '', auto_login = true) {

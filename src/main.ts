@@ -1,11 +1,11 @@
 import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Menu } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
-import { SearchModal } from 'src/search_remote';
-import { LocalSearchModal } from 'src/search_local';
+import { SearchModal } from 'src/search/search_remote';
+import { LocalSearchModal } from 'src/search/search_local';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
-import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search_ui';
+import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search/search_ui';
 import { registerCustomIcons } from 'src/custom_icons';
 
 export default class ExMemoPlugin extends Plugin {

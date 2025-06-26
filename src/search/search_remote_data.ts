@@ -1,7 +1,7 @@
 import { MarkdownView, Notice, Plugin } from 'obsidian';
 import { t } from "src/lang/helpers"
 import { requestWithToken } from "src/utils";
-import { parseKeywords, extractSnippet, BaseSearchResult } from "src/search_data";
+import { parseKeywords, extractSnippet, BaseSearchResult } from "src/search/search_data";
 
 export interface RemoteSearchResult extends BaseSearchResult {
     ctype: string;
