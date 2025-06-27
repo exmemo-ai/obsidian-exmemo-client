@@ -52,6 +52,8 @@ export async function searchRemoteData(
     }
     if (searchMethod && searchMethod != '' && searchMethod != 'keywordOnly') {
         url.searchParams.append('method', searchMethod);
+    } else {
+        url.searchParams.append('method', 'keywordOnly');
     }
     if (plugin.settings.searchExclude && plugin.settings.searchExclude.trim() !== '') {
         url.searchParams.append('exclude', plugin.settings.searchExclude.trim());
