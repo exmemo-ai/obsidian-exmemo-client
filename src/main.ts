@@ -1,8 +1,7 @@
 import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Menu } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
-import { SearchModal } from 'src/search/search_remote';
-import { LocalSearchModal } from 'src/search/search_local';
+import { SearchModal } from 'src/search/search_ui';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
 import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search/search_ui';
@@ -23,22 +22,15 @@ export default class ExMemoPlugin extends Plugin {
 		//this.debugSearchLeaf(); // for debug
 
 		this.addCommand({
-			id: 'search',
+			id: 'search_local',
 			name: t('search'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				new SearchModal(this.app, this).open();
 			}
-		});
-		this.addCommand({
-			id: 'search_local',
-			name: t('localSearch'),
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				new LocalSearchModal(this.app, this).open();
-			}
-		});
+		});		
         this.addCommand({
             id: 'search_local_sidebar',
-            name: t('localSearch') + ' (侧栏)', // later adjust
+            name: t('search') + ' (侧栏)', // later adjust
             callback: () => {
                 const leaves = this.app.workspace.getLeavesOfType(LOCAL_SEARCH_VIEW_TYPE);
                 if (leaves.length > 0) {

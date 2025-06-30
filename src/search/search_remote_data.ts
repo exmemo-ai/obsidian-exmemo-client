@@ -48,7 +48,7 @@ export async function searchRemoteData(
     }
     if (keyword && keyword != '') {
         url.searchParams.append('keyword', keyword);
-        new Notice(t('search') + ': ' + keyword);
+        //new Notice(t('search') + ': ' + keyword);
     }
     if (searchMethod && searchMethod != '' && searchMethod != 'keywordOnly') {
         url.searchParams.append('method', searchMethod);

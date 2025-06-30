@@ -267,7 +267,7 @@ export class Sync {
         }
     }
 
-    async syncAll(autoLogin: boolean = true) {
+    async syncAll() {
         await this.localInfo.update();
 
         if (this.settings.lastSyncTime > this.settings.lastIndexTime) {
@@ -301,7 +301,7 @@ export class Sync {
         };
 
         try {
-            const response = await requestWithToken(this.plugin, requestOptions, autoLogin);
+            const response = await requestWithToken(this.plugin, requestOptions, true);
             const data = await response.json;
             this.interrupt = false;
             let showinfo = ""

@@ -1,4 +1,4 @@
-import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu } from 'obsidian';
+import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu, Modal } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult } from './search_local_data';
 import { searchRemoteData } from './search_remote_data';
@@ -725,5 +725,38 @@ export class LocalSearchView extends ItemView {
         container.style.padding = '0'; // later move to style.css
         const searchEl = container.createEl('div');
         new SearchUI(this.app, this.plugin, searchEl, true);
+    }
+}
+
+export class SearchModal extends Modal {
+    plugin: any;
+    app: App;
+    searchUI: SearchUI;
+
+    constructor(app: App, plugin: any) {
+        super(app);
+        this.plugin = plugin;
+        this.app = app;
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        
+        const modalEl = contentEl.parentElement?.parentElement;
+        if (modalEl && modalEl.className.contains('modal')) {
+            modalEl.addClass('local-search-modal');
+            
+            const modalTitleEl = modalEl.querySelector('.modal-title');
+            const modalCloseEl = modalEl.querySelector('.modal-close-button');
+            if (modalTitleEl) modalTitleEl.remove();
+            if (modalCloseEl) modalCloseEl.remove();
+        }
+
+        this.searchUI = new SearchUI(this.app, this.plugin, contentEl, true);
+    }
+
+    onClose() {
+        const { contentEl } = this;
+        contentEl.empty();
     }
 }

@@ -99,6 +99,8 @@ export async function requestWithToken(plugin: any, requestOptions: any, autoLog
             plugin.saveSettings();
             if (autoLogin) {
                 if (await ensureToken(plugin)) {
+                    requestOptions.headers = requestOptions.headers || {};
+                    requestOptions.headers['Authorization'] = 'Token ' + plugin.settings.myToken;
                     return await requestUrl(requestOptions);
                 }
             } else {
@@ -107,7 +109,8 @@ export async function requestWithToken(plugin: any, requestOptions: any, autoLog
             }
         } else {
             console.error(err);
-            let showinfo = t('connectFailed') + ': ' + err.status;
+            let isConnectFailed = err.message && (err.message.includes('ERR_CONNECTION_REFUSED') || err.message.includes('ECONNREFUSED') || err.message.includes('net::ERR_'));
+            let showinfo = isConnectFailed ? t('connectFailed') : t('connectFailed') + ': ' + err.status;
             if (notice) {
                 plugin.showNotice('error', showinfo, { timeout: 3000 });
             }
