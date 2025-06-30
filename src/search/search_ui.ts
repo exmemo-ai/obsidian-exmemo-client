@@ -1,4 +1,4 @@
-import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu, Modal } from 'obsidian';
+import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu, Modal, setIcon } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult } from './search_local_data';
 import { searchRemoteData } from './search_remote_data';
@@ -30,7 +30,6 @@ export class SearchUI {
     folderContainer: HTMLElement;
     clearButtonEl: HTMLButtonElement;
     isSearching: boolean;
-    searchIconEl: HTMLElement;
 
     protected searchInput: HTMLInputElement;
     protected resultsList: HTMLElement;
@@ -143,8 +142,7 @@ export class SearchUI {
             cls: 'search-button',
             attr: { title: t('search') }
         });
-        this.searchIconEl = this.searchBtnControlsEl.createEl('div', { cls: 'search-icon' });
-        this.searchIconEl.createEl('div', { cls: 'search-icon-handle' });
+        setIcon(this.searchBtnControlsEl, 'search2-icon');
         this.searchBtnControlsEl.addEventListener('click', async () => {
             await this.executeSearch();
         });
@@ -153,7 +151,7 @@ export class SearchUI {
             cls: 'advanced-toggle',
             attr: { title: t('advancedSearch') || 'Advanced search' }
         });
-        advancedToggleEl.textContent = '▼';
+        setIcon(advancedToggleEl, 'down-icon');
 
         this.advancedSearchEl = containerEl.createEl('div', { cls: 'advanced-search-panel' });
         this.advancedSearchEl.style.display = 'none';
@@ -232,12 +230,12 @@ export class SearchUI {
 
         this.advancedSearchVisible = !!this.plugin.settings.advancedSearchVisible;
         this.advancedSearchEl.style.display = this.advancedSearchVisible ? 'block' : 'none';
-        advancedToggleEl.textContent = this.advancedSearchVisible ? '▲' : '▼';
+        setIcon(advancedToggleEl, this.advancedSearchVisible ? 'up-icon' : 'down-icon');
 
         advancedToggleEl.addEventListener('click', () => {
             this.advancedSearchVisible = !this.advancedSearchVisible;
             this.advancedSearchEl.style.display = this.advancedSearchVisible ? 'block' : 'none';
-            advancedToggleEl.textContent = this.advancedSearchVisible ? '▲' : '▼';
+            setIcon(advancedToggleEl, this.advancedSearchVisible ? 'up-icon' : 'down-icon');
 
             this.plugin.settings.advancedSearchVisible = this.advancedSearchVisible;
             this.plugin.saveSettings();
@@ -281,6 +279,7 @@ export class SearchUI {
         const keyword = this.keywordInputEl.value;
         if (!keyword.trim()) {
             this.resultsContainerEl.empty();
+            this.displayUsageTips();
             return;
         }
 
@@ -363,6 +362,23 @@ export class SearchUI {
         
         const errorEl = this.resultsContainerEl.createEl('div', { cls: 'search-error' });
         errorEl.textContent = t('searchError');
+    }
+
+    private displayUsageTips() {
+        const usageTipsEl = this.resultsContainerEl.createEl('div', { cls: 'search-usage-tips' });
+        
+        const titleEl = usageTipsEl.createEl('h3', { cls: 'usage-tips-title' });
+        titleEl.textContent = t('searchUsageTitle');
+        
+        const tipsListEl = usageTipsEl.createEl('ul', { cls: 'usage-tips-list' });
+        
+        const tips = t('searchUsageTips') as unknown as string[];
+        if (Array.isArray(tips)) {
+            tips.forEach(tip => {
+                const tipEl = tipsListEl.createEl('li', { cls: 'usage-tip-item' });
+                tipEl.innerHTML = tip;
+            });
+        } 
     }
 
     navigateHistory(direction: 'up' | 'down') {
@@ -626,7 +642,7 @@ export class SearchUI {
                     cls: 'results-menu-button',
                     attr: { title: t('searchResultMenu') }
                 });
-                menuButton.textContent = '⋮';
+                menuButton.textContent = '⋯';
                 menuButton.addEventListener('click', (event) => {
                     this.triggerSearchResultsMenu(results as LocalSearchResult[], event);
                 });
@@ -639,7 +655,8 @@ export class SearchUI {
     protected displayResults(results: BaseSearchResult[]) {
         this.resultsContainerEl.empty();
 
-        const keyword = this.keywordInputEl.value;
+        const keyword = this.keywordInputEl.value.trim();
+        
         this.createResultsHeader(results);
 
         if (results.length === 0) {
@@ -680,11 +697,10 @@ export class SearchUI {
             searchQuery: {
                 query: this.keywordInputEl.value
             },
-            /* // for my plugins, not used
-            view: {
+            view: { // for my plugin
                 searchResults: results,
                 searchQuery: this.keywordInputEl.value
-            },*/
+            },
             getQuery: () => {
                 return this.keywordInputEl.value;
             }
@@ -695,9 +711,9 @@ export class SearchUI {
     }
 }
 
-export const LOCAL_SEARCH_VIEW_TYPE = 'local-search-view';
+export const LEFT_SEARCH_VIEW_TYPE = 'left-search-view';
 
-export class LocalSearchView extends ItemView {
+export class LeftSearchView extends ItemView {
     plugin: any;
     app: App;
 
@@ -708,7 +724,7 @@ export class LocalSearchView extends ItemView {
     }
 
     getViewType() {
-        return LOCAL_SEARCH_VIEW_TYPE;
+        return LEFT_SEARCH_VIEW_TYPE;
     }
 
     getDisplayText() {
@@ -716,7 +732,7 @@ export class LocalSearchView extends ItemView {
     }
 
     getIcon() {
-        return 'search-icon';
+        return 'search2-icon';
     }
 
     async onOpen() {
