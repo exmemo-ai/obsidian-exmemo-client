@@ -4,7 +4,7 @@ import { Sync } from 'src/sync';
 import { SearchModal } from 'src/search/search_ui';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
-import { LocalSearchView, LOCAL_SEARCH_VIEW_TYPE } from 'src/search/search_ui';
+import { LeftSearchView, LEFT_SEARCH_VIEW_TYPE } from 'src/search/search_ui';
 import { registerCustomIcons } from 'src/custom_icons';
 
 export default class ExMemoPlugin extends Plugin {
@@ -32,7 +32,7 @@ export default class ExMemoPlugin extends Plugin {
             id: 'search_local_sidebar',
             name: t('search') + ' (侧栏)', // later adjust
             callback: () => {
-                const leaves = this.app.workspace.getLeavesOfType(LOCAL_SEARCH_VIEW_TYPE);
+                const leaves = this.app.workspace.getLeavesOfType(LEFT_SEARCH_VIEW_TYPE);
                 if (leaves.length > 0) {
                     this.app.workspace.revealLeaf(leaves[0]);
                     return;
@@ -40,7 +40,7 @@ export default class ExMemoPlugin extends Plugin {
 				const leaf = this.app.workspace.getLeftLeaf(false);
 				if (leaf) {
 					leaf.setViewState({
-						type: LOCAL_SEARCH_VIEW_TYPE,
+						type: LEFT_SEARCH_VIEW_TYPE,
 						active: true
 					});
 					this.app.workspace.revealLeaf(leaf);
@@ -48,8 +48,8 @@ export default class ExMemoPlugin extends Plugin {
             }
         });
         this.registerView(
-            LOCAL_SEARCH_VIEW_TYPE,
-            (leaf: WorkspaceLeaf) => new LocalSearchView(leaf, this.app, this)
+            LEFT_SEARCH_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new LeftSearchView(leaf, this.app, this)
         );
 		this.addCommand({
 			id: 'upload',
@@ -84,7 +84,7 @@ export default class ExMemoPlugin extends Plugin {
 			window.clearInterval(this.syncIntervalId);
 			this.syncIntervalId = 0;
 		}
-        this.app.workspace.getLeavesOfType(LOCAL_SEARCH_VIEW_TYPE).forEach(leaf => leaf.detach());
+        this.app.workspace.getLeavesOfType(LEFT_SEARCH_VIEW_TYPE).forEach(leaf => leaf.detach());
 	}
 
 	async loadSettings() {

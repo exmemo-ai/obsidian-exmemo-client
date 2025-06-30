@@ -267,10 +267,15 @@ search
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 16px;
+    padding: 3px;
+    border-radius: 50%;
+    font-size: 7px;
     line-height: 1;
+    width: 12px;
+    height: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     transition: background-color 0.2s ease;
 }
 
@@ -628,4 +633,40 @@ search
 .keyword-nav-btn:before {
     content: "🔍";
     margin-right: 6px;
+}
+
+/* Search Usage Tips */
+.search-usage-tips {
+    padding: 16px;
+    margin: 16px 0;
+    background: var(--background-secondary);
+    border-radius: 6px;
+}
+
+.usage-tips-title {
+    margin: 0 0 10px 0;
+    font-size: 0.9em;
+    font-weight: 500;
+    color: var(--text-faint);
+}
+
+.usage-tips-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.usage-tip-item {
+    padding: 4px 0;
+    color: var(--text-faint);
+    line-height: 1.3;
+    font-size: 0.85em;
+}
+
+.usage-tip-item code {
+    background: var(--background-primary-alt);
+    color: var(--text-accent);
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-family: var(--font-monospace);
 }
