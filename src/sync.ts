@@ -114,68 +114,237 @@ export class Sync {
 
     async uploadFiles(uploadList: TFile[]): Promise<[boolean, TFile[]]> {
         const url = new URL(this.settings.url + '/api/entry/data/');
-        const groupSize = 5;
-        const groupCount = Math.ceil(uploadList.length / groupSize);
+        const MAX_SYNC_SIZE = 20 * 1024 * 1024; // 20MB
         let uploadedList: TFile[] = [];
         let ret = true;
 
-        this.plugin.showNotice('sync',
-            t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
-            { 'button': this.interruptButton });
+        let totalSize = 0;
+        const fileSizes: Map<TFile, number> = new Map();
+        for (const file of uploadList) {
+            const stat = await this.app.vault.adapter.stat(file.path);
+            const size = stat?.size || 0;
+            fileSizes.set(file, size);
+            totalSize += size;
+        }
 
-        for (let i = 0; i < groupCount; i++) {
-            if (this.interrupt) {
-                break;
-            }
-            const boundary = "----WebKitFormBoundary" + Math.random().toString(36).slice(2);
-            const group = uploadList.slice(i * groupSize, (i + 1) * groupSize);
-            const body = new FormData();
-            body.append('etype', 'note');
-            body.append('source', 'obsidian_plugin');
-            body.append('vault', this.app.vault.getName());
-            body.append('rtype', 'upload');
-            body.append('user_name', this.settings.myUsername);
-            for (let file of group) {
-                const fileContent = await this.app.vault.readBinary(file);
-                const blob = new Blob([fileContent]);
-                body.append('files', blob, file.name);
-                body.append('filepaths', file.path);
-                if (this.localInfo.fileInfoList[file.path]) {
-                    body.append('filemd5s', this.localInfo.fileInfoList[file.path].md5);
-                }
-            }
+        console.log('uploadFiles', uploadList.length, 'files, total size:', this.formatSize(totalSize));
 
-            const requestOptions = {
-                url: url.toString(),
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Token ' + this.settings.myToken,
-                    "Content-Type": `multipart/form-data; boundary=${boundary}`
-                },
-                body: await this.formDataToArrayBuffer(body, boundary)
-            };
+        const useAsync = totalSize > MAX_SYNC_SIZE || uploadList.length > 100;
+        //const useAsync = true; // for test, later...
+        this.updateProgressNotice(0, uploadList.length, useAsync ? t('asyncMode') : t('syncMode'));
 
-            try {
-                const response = await requestWithToken(this.plugin, requestOptions);
-                const data = await response.json;
-                if (data.list) {
-                    for (const file of group) {
-                        if (data.list.includes(file.path)) {
-                            uploadedList.push(file);
-                        }
-                    }
+        if (useAsync) {
+            // asynchronous upload: all files at once
+            return await this.uploadFilesAsync(uploadList, fileSizes, url);
+        } else {
+            // synchronous upload: group by size
+            const groups = this.groupFilesBySize(uploadList, fileSizes, MAX_SYNC_SIZE);
+            
+            for (let i = 0; i < groups.length; i++) {
+                if (this.interrupt) {
+                    break;
                 }
-                if (data.emb_status && data.emb_status === 'failed') {
-                    this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
+                
+                const group = groups[i];
+                const [groupSuccess, groupResult] = await this.uploadFileGroup(group, url, false);
+                
+                if (groupSuccess && Array.isArray(groupResult)) {
+                    uploadedList.push(...groupResult);
+                } else {
+                    ret = false;
                 }
-                this.plugin.showNotice('sync',
-                    t('upload') + ': ' + uploadedList.length + '/' + uploadList.length,
-                    { 'button': this.interruptButton });
-            } catch (err) {
-                ret = false;
+                
+                this.updateProgressNotice(uploadedList.length, uploadList.length, t('syncMode'));
             }
         }
+        
         return [ret, uploadedList];
+    }
+
+    private groupFilesBySize(files: TFile[], fileSizes: Map<TFile, number>, maxSize: number): TFile[][] {
+        const groups: TFile[][] = [];
+        let currentGroup: TFile[] = [];
+        let currentSize = 0;
+
+        const sortedFiles = [...files].sort((a, b) => {
+            const sizeA = fileSizes.get(a) || 0;
+            const sizeB = fileSizes.get(b) || 0;
+            return sizeA - sizeB;
+        });
+
+        for (const file of sortedFiles) {
+            const fileSize = fileSizes.get(file) || 0;
+            
+            if (fileSize > maxSize) {
+                if (currentGroup.length > 0) {
+                    groups.push(currentGroup);
+                    currentGroup = [];
+                    currentSize = 0;
+                }
+                groups.push([file]);
+                continue;
+            }
+
+            if (currentSize + fileSize > maxSize && currentGroup.length > 0) {
+                groups.push(currentGroup);
+                currentGroup = [file];
+                currentSize = fileSize;
+            } else {
+                currentGroup.push(file);
+                currentSize += fileSize;
+            }
+        }
+
+        if (currentGroup.length > 0) {
+            groups.push(currentGroup);
+        }
+
+        return groups;
+    }
+
+    private async uploadFilesAsync(uploadList: TFile[], fileSizes: Map<TFile, number>, url: URL): Promise<[boolean, TFile[]]> {
+        const [success, result] = await this.uploadFileGroup(uploadList, url, true);
+        
+        if (success) {
+            if (typeof result === 'string') {
+                return await this.pollUploadProgress(result, uploadList);
+            } else if (Array.isArray(result)) {
+                console.log(t('serverNotSupportAsync'));
+                this.updateProgressNotice(uploadList.length, uploadList.length, t('syncMode'));
+                return [true, result];
+            }
+        }
+        
+        return [false, []];
+    }
+
+    private async uploadFileGroup(group: TFile[], url: URL, isAsync: boolean): Promise<[boolean, TFile[] | string]> {
+        const boundary = "----WebKitFormBoundary" + Math.random().toString(36).slice(2);
+        const body = new FormData();
+        
+        body.append('etype', 'note');
+        body.append('source', 'obsidian_plugin');
+        body.append('vault', this.app.vault.getName());
+        body.append('rtype', 'upload');
+        body.append('user_name', this.settings.myUsername);
+        body.append('is_async', isAsync ? 'true' : 'false');
+        
+        for (let file of group) {
+            const fileContent = await this.app.vault.readBinary(file);
+            const blob = new Blob([fileContent]);
+            body.append('files', blob, file.name);
+            body.append('filepaths', file.path);
+            if (this.localInfo.fileInfoList[file.path]) {
+                body.append('filemd5s', this.localInfo.fileInfoList[file.path].md5);
+            }
+        }
+
+        const requestOptions = {
+            url: url.toString(),
+            method: 'POST',
+            headers: {
+                'Authorization': 'Token ' + this.settings.myToken,
+                "Content-Type": `multipart/form-data; boundary=${boundary}`
+            },
+            body: await this.formDataToArrayBuffer(body, boundary)
+        };
+
+        try {
+            const response = await requestWithToken(this.plugin, requestOptions);
+            const data = await response.json;
+            
+            if (isAsync && data.task_id) {
+                return [true, data.task_id as string];
+            }
+            
+            const uploadedFiles: TFile[] = [];
+            if (data.results) {
+                for (const file of group) {
+                    if (data.results.some((result: any) => result.path === file.path)) {
+                        uploadedFiles.push(file);
+                    }
+                }
+            }
+            
+            if (data.emb_status && data.emb_status === 'failed') {
+                this.plugin.showNotice('error', t('embeddingFailed'), { timeout: 3000 });
+            }
+            
+            return [true, uploadedFiles];
+        } catch (err) {
+            console.error('Upload group failed:', err);
+            return [false, []];
+        }
+    }
+
+    private async pollUploadProgress(taskId: string, originalFiles: TFile[]): Promise<[boolean, TFile[]]> {
+        const maxAttempts = 60; // 5分钟超时 (60 * 5秒)
+        let attempts = 0;
+        let currentTaskId = taskId;
+
+        console.log(t('pollingTaskStatus') + ', taskId:', currentTaskId);
+        while (attempts < maxAttempts) {
+            if (this.interrupt) {
+                await this.terminateTask(currentTaskId);
+                this.plugin.showNotice('sync', t('upload') + ': ' + t('interrupted'), { timeout: 2000 });
+                break;
+            }
+
+            try {
+                const progressUrl = `${this.settings.url}/api/tasks/running_tasks/`;
+                const response = await requestWithToken(this.plugin, {
+                    url: progressUrl,
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Token ' + this.settings.myToken
+                    }
+                });
+
+                const data = await response.json;
+                
+                const runningTasks = data.results || [];
+                const currentTask = runningTasks.find((task: any) => task.task_id === currentTaskId);
+                
+                if (!currentTask) {
+                    this.updateProgressNotice(originalFiles.length, originalFiles.length, t('asyncMode'));
+                    return [true, originalFiles];
+                }
+
+                const progress = currentTask.progress || {};
+                const current = progress.current || 0;
+                const status = currentTask.status || 'RUNNING';
+
+                console.log('tasks', data.results, currentTask, currentTaskId, "status", status);
+
+                if (status === 'SUCCESS' || status === 'COMPLETED') {
+                    this.updateProgressNotice(originalFiles.length, originalFiles.length, t('asyncMode'));
+                    return [true, originalFiles];
+                } else if (status === 'FAILURE' || status === 'FAILED') {
+                    this.plugin.showNotice('error', `${t('uploadFailedWithError')}: ${currentTask.error || t('unknownError')}`, { timeout: 5000 });
+                    return [false, []];
+                } else {
+                    this.updateProgressNotice(current, originalFiles.length, t('asyncMode'));
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 5000)); // 5秒间隔
+                attempts++;
+            } catch (err) {
+                console.error('Progress polling failed:', err);
+                attempts++;
+                await new Promise(resolve => setTimeout(resolve, 5000));
+            }
+        }
+
+        this.plugin.showNotice('error', t('uploadTimeout'), { timeout: 5000 });
+        return [false, []];
+    }
+
+    private formatSize(bytes: number): string {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
     wildcardToRegex(wildcard: string) {
@@ -333,13 +502,14 @@ export class Sync {
                 return;
             }
             this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
-            
             if (upload_list.length > 0) {
                 let updateFiles: TFile[] = [];
                 for (const dic of upload_list) {
                     const file = this.app.vault.getAbstractFileByPath(dic['addr']);
                     if (file instanceof TFile) {
                         updateFiles.push(file);
+                    } else {
+                        console.log("can't found" + dic['addr']);
                     }
                 }
                 await this.uploadFiles(updateFiles);
@@ -541,6 +711,31 @@ export class Sync {
                 this.plugin.showNotice('temp', t('uploadFinished'), { timeout: 3000 });
             }
         }
+    }
+
+    private async terminateTask(taskId: string): Promise<boolean> {
+        try {
+            const terminateUrl = `${this.settings.url}/api/tasks/${taskId}/terminate/`;
+            const response = await requestWithToken(this.plugin, {
+                url: terminateUrl,
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Token ' + this.settings.myToken
+                }
+            });
+            
+            const result = await response.json;
+            return result.code === 0;
+        } catch (err) {
+            console.error('Failed to terminate task:', err);
+            return false;
+        }
+    }
+
+    private updateProgressNotice(current: number, total: number, mode: string): void {
+        this.plugin.showNotice('sync',
+            t('upload') + `: ${current}/${total} ${mode}`,
+            { 'button': this.interruptButton });
     }
 }
 
