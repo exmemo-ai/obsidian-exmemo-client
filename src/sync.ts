@@ -112,6 +112,25 @@ export class Sync {
         return new Blob(chunks).arrayBuffer();
     }
 
+    async checkServerAsyncSupport(): Promise<boolean> {
+        try {
+            const url = `${this.settings.url}/api/tasks/async_support/`;
+            const response = await requestWithToken(this.plugin, {
+                url: url,
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Token ' + this.settings.myToken
+                }
+            });
+            
+            const data = await response.json;
+            return data.async_supported === true;
+        } catch (err) {
+            console.error('Failed to check async support:', err);
+            return false;
+        } 
+    }
+
     async uploadFiles(uploadList: TFile[]): Promise<[boolean, TFile[]]> {
         const url = new URL(this.settings.url + '/api/entry/data/');
         const MAX_SYNC_SIZE = 20 * 1024 * 1024; // 20MB
@@ -129,7 +148,17 @@ export class Sync {
 
         console.log('uploadFiles', uploadList.length, 'files, total size:', this.formatSize(totalSize));
 
-        const useAsync = totalSize > MAX_SYNC_SIZE || uploadList.length > 100;
+        let useAsync = totalSize > MAX_SYNC_SIZE || uploadList.length > 100;
+        
+        if (useAsync) {
+            const serverSupportsAsync = await this.checkServerAsyncSupport();
+            if (!serverSupportsAsync) {
+                console.log('Server does not support async upload, falling back to sync mode');
+                this.plugin.showNotice('temp', t('serverNotSupportAsync'), { timeout: 3000 });
+                useAsync = false;
+            }
+        }
+        
         //const useAsync = true; // for test, later...
         this.updateProgressNotice(0, uploadList.length, useAsync ? t('asyncMode') : t('syncMode'));
 
