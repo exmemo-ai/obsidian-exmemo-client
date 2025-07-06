@@ -101,12 +101,7 @@ export default {
   "keywordSearch": "Keyword search",
   "searchSyntaxTip": "Supports tag:tagname, file:filename",
   "searchUsageTitle": "Search Tips",
-  "searchUsageTips": [
-    "Use <code>file:filename</code> to search for specific files",
-    "Use <code>tag:tagname</code> to search for content with specific tags",
-    "Separate multiple keywords with spaces: <code>work plan</code>",
-    "Use quotes to search for phrases: <code>\"git tag\"</code>"
-  ],
+  "searchUsageTips": "Use <code>file:filename</code> to search for specific files<br>Use <code>tag:tagname</code> to search for content with specific tags<br>Separate multiple keywords with spaces: <code>work plan</code><br>Use quotes to search for phrases: <code>\"git tag\"</code>",
   "clearInput": "Clear input",
   "remoteSearchResults": "Remote search",
   "local": "Local",

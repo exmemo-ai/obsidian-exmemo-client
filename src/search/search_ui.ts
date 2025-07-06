@@ -372,13 +372,12 @@ export class SearchUI {
         
         const tipsListEl = usageTipsEl.createEl('ul', { cls: 'usage-tips-list' });
         
-        const tips = t('searchUsageTips') as unknown as string[];
-        if (Array.isArray(tips)) {
-            tips.forEach(tip => {
-                const tipEl = tipsListEl.createEl('li', { cls: 'usage-tip-item' });
-                tipEl.innerHTML = tip;
-            });
-        } 
+        const tips = t('searchUsageTips') as string;
+        const tipItems = tips.split('<br>');
+        tipItems.forEach(tip => {
+            const tipEl = tipsListEl.createEl('li', { cls: 'usage-tip-item' });
+            tipEl.innerHTML = tip.trim();
+        }); 
     }
 
     navigateHistory(direction: 'up' | 'down') {
