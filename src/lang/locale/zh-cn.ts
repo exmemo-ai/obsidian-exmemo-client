@@ -86,6 +86,7 @@ export default {
     'unknownError': '未知错误',
     'uploadTimeout': '上传超时，请检查服务器状态',
     'serverNotSupportAsync': '服务端不支持异步上传，使用同步模式处理结果',
+    'syncInProgress': '同步进行中，请稍候...',
     // search
     "search": "搜索",
     "searchFailed": "搜索失败",

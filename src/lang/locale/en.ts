@@ -85,6 +85,7 @@ export default {
   'unknownError': 'Unknown error',
   'uploadTimeout': 'Upload timeout, please check server status',
   'serverNotSupportAsync': 'Server does not support async upload, using sync mode to handle results',
+  'syncInProgress': 'Sync in progress, please wait...',
   // search
   "search": "Search",
   "searchFailed": "Search failed",

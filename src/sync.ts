@@ -74,6 +74,7 @@ export class Sync {
     localInfo: LocalInfo;
     currentConflictModal: ConflictModal | null = null;
     currentConfirmModal: ConfirmModal | null = null;
+    isSyncing: boolean = false;
 
     constructor(plugin: any, app: any, settings: any) {
         this.plugin = plugin;
@@ -166,8 +167,8 @@ export class Sync {
             // asynchronous upload: all files at once
             return await this.uploadFilesAsync(uploadList, fileSizes, url);
         } else {
-            // synchronous upload: group by size
-            const groups = this.groupFilesBySize(uploadList, fileSizes, MAX_SYNC_SIZE);
+            // const groups = this.groupFilesBySize(uploadList, fileSizes, MAX_SYNC_SIZE);
+            const groups = this.groupFilesByCount(uploadList, 5);
             
             for (let i = 0; i < groups.length; i++) {
                 if (this.interrupt) {
@@ -175,14 +176,13 @@ export class Sync {
                 }
                 
                 const group = groups[i];
+                // console.log(`Uploading group ${i + 1}/${groups.length}`, 'this.interrupt', this.interrupt, 'group', group);
                 const [groupSuccess, groupResult] = await this.uploadFileGroup(group, url, false);
-                
                 if (groupSuccess && Array.isArray(groupResult)) {
                     uploadedList.push(...groupResult);
                 } else {
                     ret = false;
                 }
-                
                 this.updateProgressNotice(uploadedList.length, uploadList.length, t('syncMode'));
             }
         }
@@ -226,6 +226,17 @@ export class Sync {
 
         if (currentGroup.length > 0) {
             groups.push(currentGroup);
+        }
+
+        return groups;
+    }
+
+    private groupFilesByCount(files: TFile[], filesPerGroup: number = 5): TFile[][] {
+        const groups: TFile[][] = [];
+        
+        for (let i = 0; i < files.length; i += filesPerGroup) {
+            const group = files.slice(i, i + filesPerGroup);
+            groups.push(group);
         }
 
         return groups;
@@ -287,9 +298,10 @@ export class Sync {
             }
             
             const uploadedFiles: TFile[] = [];
-            if (data.results) {
+            //console.log('upload file return', data) // for test
+            if (data.list) {
                 for (const file of group) {
-                    if (data.results.some((result: any) => result.path === file.path)) {
+                    if (data.list.some((result: any) => result === file.path)) {
                         uploadedFiles.push(file);
                     }
                 }
@@ -466,42 +478,50 @@ export class Sync {
     }
 
     async syncAll() {
-        await this.localInfo.update();
-
-        if (this.settings.lastSyncTime > this.settings.lastIndexTime) {
-            if (!await this.checkServerUpdate()) {
-                this.plugin.showNotice('temp', t('sync') + ": " + t('sync_no_file_change'), { timeout: 3000 });
-                return;
-            }
+        if (this.isSyncing) {
+            this.plugin.showNotice('temp', t('syncInProgress'), { timeout: 3000 });
+            return;
         }
 
-        const include_str = this.regularRules(this.settings.include);
-        const exclude_str = this.regularRules(this.settings.exclude);
-        const fileList = await this.getLocalFiles(include_str, exclude_str);
-        const url = new URL(this.settings.url + '/api/sync/');
-        const params = new URLSearchParams();
-        params.append('user_name', this.settings.myUsername);
-        params.append('vault', this.app.vault.getName());
-        params.append('rtype', 'compare');
-        params.append('include', include_str);
-        params.append('exclude', exclude_str);
-        params.append('last_sync_time', this.settings.lastSyncTime.toString());
-        params.append('files', JSON.stringify(fileList));
-
-        const requestOptions = {
-            url: url.toString(),
-            method: 'POST',
-            headers: {
-                'Authorization': 'Token ' + this.settings.myToken,
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: params.toString()
-        };
-
         try {
+            this.isSyncing = true;
+            this.interrupt = false;
+            
+            await this.localInfo.update();
+
+            if (this.settings.lastSyncTime > this.settings.lastIndexTime) {
+                if (!await this.checkServerUpdate()) {
+                    this.plugin.showNotice('temp', t('sync') + ": " + t('sync_no_file_change'), { timeout: 3000 });
+                    return;
+                }
+            }
+
+            const include_str = this.regularRules(this.settings.include);
+            const exclude_str = this.regularRules(this.settings.exclude);
+            const fileList = await this.getLocalFiles(include_str, exclude_str);
+            const url = new URL(this.settings.url + '/api/sync/');
+            const params = new URLSearchParams();
+            params.append('user_name', this.settings.myUsername);
+            params.append('vault', this.app.vault.getName());
+            params.append('rtype', 'compare');
+            params.append('include', include_str);
+            params.append('exclude', exclude_str);
+            params.append('last_sync_time', this.settings.lastSyncTime.toString());
+            params.append('files', JSON.stringify(fileList));
+
+            const requestOptions = {
+                url: url.toString(),
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Token ' + this.settings.myToken,
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params.toString()
+            };
+
             const response = await requestWithToken(this.plugin, requestOptions, true);
             const data = await response.json;
-            this.interrupt = false;
+            
             let showinfo = ""
             let upload_list = data.upload_list || [];
             let download_list = data.download_list || [];
@@ -561,6 +581,8 @@ export class Sync {
             }
         } catch (err) {
             this.plugin.showNotice('sync', t('syncFailed') + ': ' + err.status, { timeout: 3000 });
+        } finally {
+            this.isSyncing = false;
         }
     }
 
@@ -726,19 +748,30 @@ export class Sync {
         return ret;
     }
 
-    async syncCurrentMd(plugin: any) {       
-        this.interrupt = false;
-        const file: TFile = this.app.workspace.getActiveViewOfType(MarkdownView).file;
-        let [ret, list] = await this.uploadFiles([file]);
-        this.plugin.hideNotice('sync')
-        if (ret) {
-            if (Array.isArray(list) && list.length > 0) {
-                this.plugin.showNotice('temp', t('uploadSuccess'), { timeout: 3000 });
-                const newSyncTime = new Date().getTime() + 5000; // 5 sec delay
-                this.localInfo.updateFilesSyncTime([file.path], newSyncTime);
-            } else {
-                this.plugin.showNotice('temp', t('uploadFinished'), { timeout: 3000 });
+    async syncCurrentMd(plugin: any) {
+        if (this.isSyncing) {
+            this.plugin.showNotice('temp', t('syncInProgress'), { timeout: 3000 });
+            return;
+        }
+
+        try {
+            this.isSyncing = true;
+            this.interrupt = false;
+            
+            const file: TFile = this.app.workspace.getActiveViewOfType(MarkdownView).file;
+            let [ret, list] = await this.uploadFiles([file]);
+            this.plugin.hideNotice('sync')
+            if (ret) {
+                if (Array.isArray(list) && list.length > 0) {
+                    this.plugin.showNotice('temp', t('uploadSuccess'), { timeout: 3000 });
+                    const newSyncTime = new Date().getTime() + 5000; // 5 sec delay
+                    this.localInfo.updateFilesSyncTime([file.path], newSyncTime);
+                } else {
+                    this.plugin.showNotice('temp', t('uploadFinished'), { timeout: 3000 });
+                }
             }
+        } finally {
+            this.isSyncing = false;
         }
     }
 
