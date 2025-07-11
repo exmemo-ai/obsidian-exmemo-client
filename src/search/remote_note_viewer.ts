@@ -1,7 +1,7 @@
 import { App, Modal, Component, MarkdownRenderer, Notice } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { requestWithToken } from "src/utils";
-import { parseKeywords } from "src/search/search_data";
+import { parseKeywords, openNote } from "src/search/search_data";
 
 export class RemoteNoteViewerModal extends Modal {
     private plugin: any;
@@ -19,15 +19,37 @@ export class RemoteNoteViewerModal extends Modal {
     private highlightedElements: HTMLElement[] = [];
     private currentHighlightIndex: number = 0;
     private nextKeywordBtn: HTMLButtonElement;
+    private isRemote: boolean = true;
+    private localFile: any = null;
 
     constructor(app: App, plugin: any, item: any, keyword: string) {
         super(app);
         this.plugin = plugin;
         if (item && item.idx) 
             this.idx = item.idx;
+        else
+            this.idx = null;
         if (item && item.etype)
             this.etype = item.etype;
+        else
+            this.etype = null;
         this.keyword = keyword;
+        
+        if (item && item.isRemote !== undefined) {
+            this.isRemote = item.isRemote;
+        }
+        
+        if (!this.isRemote && item && item.file) {
+            this.localFile = item.file;
+        }
+        
+        if (item && item.addr) {
+            this.addr = item.addr;
+        }
+        
+        if (item && item.title) {
+            this.filename = item.title;
+        }
     }
 
     onOpen() {
@@ -63,7 +85,12 @@ export class RemoteNoteViewerModal extends Modal {
 
     private async loadNoteContent() {
         try {
-            const content = await this.fetchRemoteNoteContent();
+            let content: string;
+            if (this.isRemote) {
+                content = await this.fetchRemoteNoteContent();
+            } else {
+                content = await this.fetchLocalNoteContent();
+            }
             await this.displayContent(content);
         } catch (error) {
             this.displayError(error);
@@ -118,6 +145,31 @@ export class RemoteNoteViewerModal extends Modal {
         }
     }
 
+    private async fetchLocalNoteContent(): Promise<string> {
+        if (!this.localFile) {
+            throw new Error(t('missingNoteIndex'));
+        }
+
+        try {
+            const content = await this.app.vault.read(this.localFile);
+            
+            if (this.localFile.basename) {
+                this.noteTitleEl.textContent = this.localFile.basename;
+                this.filename = this.localFile.basename;
+            }
+            
+            if (this.localFile.path) {
+                this.addr = this.localFile.path;
+                this.pathInfoEl.textContent = this.localFile.path;
+            }
+            
+            return content;
+        } catch (err) {
+            console.error('Read local file failed:', err);
+            throw new Error(t('cannotLoadNoteContent') + ': ' + err.message);
+        }
+    }
+
     private async displayContent(content: string) {
         this.rawMarkdownContent = content;
         this.loadingEl.style.display = 'none';
@@ -157,6 +209,17 @@ export class RemoteNoteViewerModal extends Modal {
             return;
         }
         
+        this.processTextNodesForHighlighting(container);
+        
+        this.highlightedElements = Array.from(container.querySelectorAll('.keyword-highlight'));
+        this.currentHighlightIndex = 0;
+        
+        this.highlightedElements.forEach((el, index) => {
+            el.setAttribute('data-highlight-index', index.toString());
+        });
+    }
+    
+    private processTextNodesForHighlighting(container: HTMLElement) {
         const walker = document.createTreeWalker(
             container,
             NodeFilter.SHOW_TEXT,
@@ -169,51 +232,77 @@ export class RemoteNoteViewerModal extends Modal {
             textNodes.push(node as Text);
         }
         
-        // Create highlighting for each keyword
-        this.keywords.forEach((keyword, keywordIndex) => {
-            if (!keyword.trim()) return;
+        textNodes.forEach(textNode => {
+            const text = textNode.textContent || '';
+            if (!text.trim()) return;
             
-            textNodes.forEach(textNode => {
-                const text = textNode.textContent || '';
+            const allMatches: Array<{
+                start: number;
+                end: number;
+                keyword: string;
+                keywordIndex: number;
+                matchText: string;
+            }> = [];
+            
+            this.keywords.forEach((keyword, keywordIndex) => {
+                if (!keyword.trim()) return;
+                
                 const regex = new RegExp(this.escapeRegExp(keyword), 'gi');
                 const matches = [...text.matchAll(regex)];
                 
-                if (matches.length > 0) {
-                    let newHtml = text;
-                    let offset = 0;
-                    
-                    matches.forEach(match => {
-                        const start = (match.index || 0) + offset;
-                        const end = start + match[0].length;
-                        const highlightClass = `keyword-highlight keyword-${keywordIndex}`;
-                        const highlightSpan = `<span class="${highlightClass}" data-keyword-index="${keywordIndex}">${match[0]}</span>`;
-                        
-                        newHtml = newHtml.slice(0, start) + highlightSpan + newHtml.slice(end);
-                        offset += highlightSpan.length - match[0].length;
+                matches.forEach(match => {
+                    allMatches.push({
+                        start: match.index || 0,
+                        end: (match.index || 0) + match[0].length,
+                        keyword: keyword,
+                        keywordIndex: keywordIndex,
+                        matchText: match[0]
                     });
-                    
-                    if (newHtml !== text && textNode.parentElement) {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = newHtml;
-                        
-                        const fragment = document.createDocumentFragment();
-                        while (tempDiv.firstChild) {
-                            fragment.appendChild(tempDiv.firstChild);
-                        }
-                        
-                        textNode.parentElement.replaceChild(fragment, textNode);
-                    }
-                }
+                });
             });
-        });
-        
-        // Collect all highlighted elements
-        this.highlightedElements = Array.from(container.querySelectorAll('.keyword-highlight'));
-        this.currentHighlightIndex = 0;
-        
-        // Add numbering to highlighted elements
-        this.highlightedElements.forEach((el, index) => {
-            el.setAttribute('data-highlight-index', index.toString());
+            
+            if (allMatches.length === 0) return;
+            
+            allMatches.sort((a, b) => b.start - a.start);
+            
+            const nonOverlappingMatches: Array<{
+                start: number;
+                end: number;
+                keyword: string;
+                keywordIndex: number;
+                matchText: string;
+            }> = [];
+            for (const match of allMatches) {
+                const hasOverlap = nonOverlappingMatches.some(existing => 
+                    (match.start < existing.end && match.end > existing.start)
+                );
+                if (!hasOverlap) {
+                    nonOverlappingMatches.push(match);
+                }
+            }
+            
+            if (nonOverlappingMatches.length > 0) {
+                let newHtml = text;
+                
+                nonOverlappingMatches.forEach(match => {
+                    const highlightClass = `keyword-highlight keyword-${match.keywordIndex}`;
+                    const highlightSpan = `<span class="${highlightClass}" data-keyword-index="${match.keywordIndex}">${match.matchText}</span>`;
+                    
+                    newHtml = newHtml.slice(0, match.start) + highlightSpan + newHtml.slice(match.end);
+                });
+                
+                if (newHtml !== text && textNode.parentElement) {
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newHtml;
+                    
+                    const fragment = document.createDocumentFragment();
+                    while (tempDiv.firstChild) {
+                        fragment.appendChild(tempDiv.firstChild);
+                    }
+                    
+                    textNode.parentElement.replaceChild(fragment, textNode);
+                }
+            }
         });
     }
     
@@ -271,6 +360,23 @@ export class RemoteNoteViewerModal extends Modal {
                 this.scrollToNextKeyword();
             });
             this.nextKeywordBtn.style.display = 'none';
+        }
+        
+        const shouldShowOpenButton = (!this.isRemote && this.localFile) || 
+            (this.isRemote && this.addr && this.etype === 'note' && this.isFileInCurrentVault());
+        
+        if (shouldShowOpenButton) {
+            const openBtn = actionsEl.createEl('button', { 
+                cls: 'remote-note-action-btn',
+                text: t('open')
+            });
+            openBtn.addEventListener('click', async () => {
+                if (!this.isRemote && this.localFile) {
+                    await this.openLocalFile();
+                } else if (this.isRemote && this.addr && this.etype === 'note') {
+                    await this.openRemoteFileInCurrentVault();
+                }
+            });
         }
         
         if (this.etype == 'web' && this.addr) {
@@ -397,6 +503,49 @@ export class RemoteNoteViewerModal extends Modal {
         } catch (error) {
             console.error(t('downloadFileFailed'), error);
             new Notice(t('downloadFileFailedRetry'));
+        }
+    }
+
+    private async openLocalFile() {
+        if (!this.localFile) {
+            console.error('No local file to open');
+            return;
+        }
+
+        try {
+            this.close();
+            await openNote(this.app, this.localFile.path, this.keyword, false);
+        } catch (error) {
+            console.error('Failed to open local file:', error);
+        }
+    }
+
+    private isFileInCurrentVault(): boolean {
+        if (!this.addr || this.etype !== 'note') {
+            return false;
+        }
+        
+        const path = this.addr.split('/');
+        const vault_name = path[0];
+        const current_vault = this.app.vault.getName();
+        
+        return current_vault === vault_name;
+    }
+
+    private async openRemoteFileInCurrentVault() {
+        if (!this.addr) {
+            console.error('No address available for remote file');
+            return;
+        }
+
+        try {
+            const path = this.addr.split('/');
+            const addr = path.slice(1).join('/'); // Remove vault name from path
+            
+            this.close();
+            await openNote(this.app, addr, this.keyword, false);            
+        } catch (error) {
+            console.error('Failed to open remote file in current vault:', error);
         }
     }
 

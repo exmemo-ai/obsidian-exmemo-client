@@ -30,7 +30,7 @@ export default class ExMemoPlugin extends Plugin {
 		});		
         this.addCommand({
             id: 'search_local_sidebar',
-            name: t('search') + ' (侧栏)', // later adjust
+            name: t('search') + ' (' + t('sidebar') + ')',
             callback: () => {
                 const leaves = this.app.workspace.getLeavesOfType(LEFT_SEARCH_VIEW_TYPE);
                 if (leaves.length > 0) {

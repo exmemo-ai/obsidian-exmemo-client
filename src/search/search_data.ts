@@ -1,3 +1,5 @@
+import { App, Editor, View } from 'obsidian';
+
 export const CONTENT_LIMIT = 100;
 
 export interface BaseSearchResult {
@@ -165,4 +167,46 @@ export function extractSnippet(content: string, keywords: string[], caseSensitiv
     if (index === -1) return "";
     
     return createSnippet(content, index, keywords[0].length);
+}
+
+export async function openNote(app : App, addr: string, keyword: string,  
+            caseSensitive?: boolean) {
+    await app.workspace.openLinkText(addr, '', false);
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const searchValue = keyword; //this.keywordInputEl.value;
+    const parsedInput = parseSearchInput(searchValue);
+    const searchType = parsedInput.searchType;
+    
+    if (searchType === 'tag' || searchType === 'file') {
+        return;
+    }
+
+    const view = app.workspace.getActiveViewOfType(View);
+    if (view && 'editor' in view) {
+        const editor = (view as any).editor as Editor;
+        if (editor) {
+            if (!searchValue) return;
+            //console.log(`Searching for: ${searchValue}`);
+            editor.focus();
+            const keyword = searchValue;
+            const content = editor.getValue();
+            //
+            //const caseSensitive = this.caseSensitiveChecked;
+            const searchContent = caseSensitive ? content : content.toLowerCase();
+            const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
+            const index = searchContent.indexOf(searchKeyword);
+            if (index >= 0) {
+                const startPos = editor.offsetToPos(index);
+                const endPos = editor.offsetToPos(index + keyword.length);
+                setTimeout(() => {
+                    editor.setSelection(startPos, endPos);
+                    const pos = editor.offsetToPos(index);
+                    const betterPos = { line: pos.line - 5, ch: 0 };
+                    editor.scrollIntoView({ from: betterPos, to: betterPos }, true);
+                    //this.app.commands.executeCommandById("editor:open-search");
+                }, 100);
+            }
+        }
+    }
 }

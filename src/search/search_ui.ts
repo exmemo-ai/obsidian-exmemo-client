@@ -1,9 +1,9 @@
-import { App, ItemView, WorkspaceLeaf, Editor, TFolder, View, Menu, Modal, setIcon } from 'obsidian';
+import { App, ItemView, WorkspaceLeaf, TFolder, Menu, Modal, setIcon } from 'obsidian';
 import { t } from "src/lang/helpers";
 import { searchLocalData, LocalSearchResult } from './search_local_data';
 import { searchRemoteData } from './search_remote_data';
 import { highlightElement } from './search_result_highlight';
-import { BaseSearchResult, parseSearchInput } from './search_data';
+import { BaseSearchResult, parseSearchInput, openNote } from './search_data';
 import { RemoteNoteViewerModal } from './remote_note_viewer';
 
 export class SearchUI {
@@ -142,7 +142,7 @@ export class SearchUI {
             cls: 'search-button',
             attr: { title: t('search') }
         });
-        setIcon(this.searchBtnControlsEl, 'search2-icon');
+        setIcon(this.searchBtnControlsEl, 'search1-icon');
         this.searchBtnControlsEl.addEventListener('click', async () => {
             await this.executeSearch();
         });
@@ -318,7 +318,7 @@ export class SearchUI {
                     '', // status
                     searchMethod
                 );
-                console.log('Remote search results:', results);
+                //console.log('Remote search results:', results);
                 this.displayResults(results);
             } catch (error) {
                 console.error('Remote search error:', error);
@@ -472,48 +472,6 @@ export class SearchUI {
         }
     }
 
-    protected async openNote(addr: string) {
-        // open note in current vault
-        await this.app.workspace.openLinkText(addr, '', true);
-        await new Promise(resolve => setTimeout(resolve, 300));
-
-        const searchValue = this.keywordInputEl.value;
-        const parsedInput = parseSearchInput(searchValue);
-        const searchType = parsedInput.searchType;
-        
-        if (searchType === 'tag' || searchType === 'file') {
-            return;
-        }
-
-        const view = this.app.workspace.getActiveViewOfType(View);
-        if (view && 'editor' in view) {
-            const editor = (view as any).editor as Editor;
-            if (editor) {
-                if (!searchValue) return;
-                console.log(`Searching for: ${searchValue}`);
-                editor.focus();
-                const keyword = searchValue;
-                const content = editor.getValue();
-                //
-                const caseSensitive = this.caseSensitiveChecked;
-                const searchContent = caseSensitive ? content : content.toLowerCase();
-                const searchKeyword = caseSensitive ? keyword : keyword.toLowerCase();
-                const index = searchContent.indexOf(searchKeyword);
-                if (index >= 0) {
-                    const startPos = editor.offsetToPos(index);
-                    const endPos = editor.offsetToPos(index + keyword.length);
-                    setTimeout(() => {
-                        editor.setSelection(startPos, endPos);
-                        const pos = editor.offsetToPos(index);
-                        const betterPos = { line: pos.line - 5, ch: 0 };
-                        editor.scrollIntoView({ from: betterPos, to: betterPos }, true);
-                        //this.app.commands.executeCommandById("editor:open-search");
-                    }, 100);
-                }
-            }
-        }
-    }
-
     protected async openResult(result:BaseSearchResult) {
         if (!result) return;
         if (result.etype === 'web' && result.addr) {
@@ -543,7 +501,7 @@ export class SearchUI {
                 if (this.plugin.settings.searchOpenInModal) {
                     new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
                 } else {
-                    await this.openNote(addr);
+                    await openNote(this.app, addr, this.keywordInputEl.value, this.caseSensitiveChecked);
                 }
             }
         }
@@ -577,8 +535,9 @@ export class SearchUI {
             const localResult = result as LocalSearchResult;
             const pathEl = infoRowEl.createEl('div', { cls: 'search-item-path' });
             const filePath = localResult.file.path;
-            const pathParts = filePath.split('/');
-            const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+            //const pathParts = filePath.split('/');
+            //const folderPath = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : '';
+            const folderPath = filePath.startsWith('/') ? filePath.slice(1) : filePath;
             pathEl.textContent = folderPath ? folderPath : '/';
         } else {
             const remoteResult = result as BaseSearchResult;
@@ -775,3 +734,4 @@ export class SearchModal extends Modal {
         contentEl.empty();
     }
 }
+

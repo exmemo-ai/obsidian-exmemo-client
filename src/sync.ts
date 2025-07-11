@@ -133,6 +133,11 @@ export class Sync {
     }
 
     async uploadFiles(uploadList: TFile[]): Promise<[boolean, TFile[]]> {
+        if (!this.settings.url || this.settings.url.trim() === '') {
+            this.plugin.showNotice('temp', t('pleaseConfigureServer'), { timeout: 3000 });
+            return [false, []];
+        }
+
         const url = new URL(this.settings.url + '/api/entry/data/');
         const MAX_SYNC_SIZE = 20 * 1024 * 1024; // 20MB
         let uploadedList: TFile[] = [];
@@ -147,20 +152,20 @@ export class Sync {
             totalSize += size;
         }
 
-        console.log('uploadFiles', uploadList.length, 'files, total size:', this.formatSize(totalSize));
+        //console.log('uploadFiles', uploadList.length, 'files, total size:', this.formatSize(totalSize));
 
         let useAsync = totalSize > MAX_SYNC_SIZE || uploadList.length > 100;
         
         if (useAsync) {
             const serverSupportsAsync = await this.checkServerAsyncSupport();
             if (!serverSupportsAsync) {
-                console.log('Server does not support async upload, falling back to sync mode');
+                //console.log('Server does not support async upload, falling back to sync mode');
                 this.plugin.showNotice('temp', t('serverNotSupportAsync'), { timeout: 3000 });
                 useAsync = false;
             }
         }
         
-        //const useAsync = true; // for test, later...
+        useAsync = true; // for test, later...
         this.updateProgressNotice(0, uploadList.length, useAsync ? t('asyncMode') : t('syncMode'));
 
         if (useAsync) {
@@ -176,13 +181,13 @@ export class Sync {
                 }
                 
                 const group = groups[i];
-                // console.log(`Uploading group ${i + 1}/${groups.length}`, 'this.interrupt', this.interrupt, 'group', group);
                 const [groupSuccess, groupResult] = await this.uploadFileGroup(group, url, false);
                 if (groupSuccess && Array.isArray(groupResult)) {
                     uploadedList.push(...groupResult);
                 } else {
                     ret = false;
                 }
+                //console.log(`Uploading group ${i + 1}/${groups.length}`, 'this.interrupt', this.interrupt, 'uploadedList', uploadedList.length, 'group', group  );
                 this.updateProgressNotice(uploadedList.length, uploadList.length, t('syncMode'));
             }
         }
@@ -323,12 +328,12 @@ export class Sync {
         let attempts = 0;
         let currentTaskId = taskId;
 
-        console.log(t('pollingTaskStatus') + ', taskId:', currentTaskId);
+        //console.log(t('pollingTaskStatus') + ', taskId:', currentTaskId);
         while (attempts < maxAttempts) {
             if (this.interrupt) {
                 await this.terminateTask(currentTaskId);
                 this.plugin.showNotice('sync', t('upload') + ': ' + t('interrupted'), { timeout: 2000 });
-                break;
+                return [false, []];
             }
 
             try {
@@ -351,11 +356,9 @@ export class Sync {
                     return [true, originalFiles];
                 }
 
-                const progress = currentTask.progress || {};
-                const current = progress.current || 0;
                 const status = currentTask.status || 'RUNNING';
 
-                console.log('tasks', data.results, currentTask, currentTaskId, "status", status);
+                //console.log('tasks', data.results, currentTask, currentTaskId, "status", status);
 
                 if (status === 'SUCCESS' || status === 'COMPLETED') {
                     this.updateProgressNotice(originalFiles.length, originalFiles.length, t('asyncMode'));
@@ -364,6 +367,8 @@ export class Sync {
                     this.plugin.showNotice('error', `${t('uploadFailedWithError')}: ${currentTask.error || t('unknownError')}`, { timeout: 5000 });
                     return [false, []];
                 } else {
+                    let current = currentTask.progress * originalFiles.length / 100 || 0;
+                    current = Math.round(current);
                     this.updateProgressNotice(current, originalFiles.length, t('asyncMode'));
                 }
 
@@ -483,6 +488,11 @@ export class Sync {
             return;
         }
 
+        if (!this.settings.url || this.settings.url.trim() === '') {
+            this.plugin.showNotice('temp', t('pleaseConfigureServer'), { timeout: 3000 });
+            return;
+        }
+
         try {
             this.isSyncing = true;
             this.interrupt = false;
@@ -547,7 +557,7 @@ export class Sync {
             if (showinfo == "") {
                 showinfo = t('nothingToDo');
                 this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
-                console.warn('syncAll nothing to do')
+                //console.warn('syncAll nothing to do')
                 return;
             }
             this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
@@ -558,7 +568,7 @@ export class Sync {
                     if (file instanceof TFile) {
                         updateFiles.push(file);
                     } else {
-                        console.log("can't found" + dic['addr']);
+                        console.warn("can't found" + dic['addr']);
                     }
                 }
                 await this.uploadFiles(updateFiles);
@@ -580,7 +590,8 @@ export class Sync {
                 this.finishSync(opt_success, upload_list, download_list);
             }
         } catch (err) {
-            this.plugin.showNotice('sync', t('syncFailed') + ': ' + err.status, { timeout: 3000 });
+            const errorMsg = err.status || err.message || 'Unknown error';
+            this.plugin.showNotice('sync', t('syncFailed') + ': ' + errorMsg, { timeout: 3000 });
         } finally {
             this.isSyncing = false;
         }
@@ -885,6 +896,8 @@ export class LocalInfo {
 
     updateFilesSyncTime(filePaths: string[], lastSyncTime?: number): void {
         const ltime = lastSyncTime || new Date().getTime();
+        // 输出ltime的时间chuo和具体的时间字串
+        console.log('updateFilesSyncTime', ltime, new Date(ltime).toLocaleString());
         for (const path of filePaths) {
             if (this.fileInfoList[path]) {
                 this.fileInfoList[path].lastSyncTime = ltime;

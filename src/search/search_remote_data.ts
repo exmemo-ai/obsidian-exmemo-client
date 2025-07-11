@@ -58,7 +58,7 @@ export async function searchRemoteData(
     if (plugin.settings.searchExclude && plugin.settings.searchExclude.trim() !== '') {
         url.searchParams.append('exclude', plugin.settings.searchExclude.trim());
     }
-
+    url.searchParams.append('case_sensitive', caseSensitive ? 'true' : 'false');
     url.searchParams.append('max_count', count.toString());
 
     const requestOptions = {
@@ -88,8 +88,10 @@ export async function searchRemoteData(
     } catch (err) {
         if (err.status === 422) {
             plugin.showNotice('search', t('searchServerNotSupportEmbedding'), { timeout: 3000 });
-        } else {
+        } else if (err.status) {
             plugin.showNotice('search', t('searchFailed') + ': ' + err.status, { timeout: 3000 });
+        } else {
+            plugin.showNotice('search', t('searchFailed') + ': ' + (err.message || 'Network error'), { timeout: 3000 });
         }
         console.error(err);
         return [];

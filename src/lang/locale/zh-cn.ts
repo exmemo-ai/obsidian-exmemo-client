@@ -45,6 +45,7 @@ export default {
     'updateIndex': '更新索引',
     'regenerate': '重新生成',
     'general': '常规',
+    "sidebar": "侧栏",
     //
     'note': '笔记',
     'web': '网页',
@@ -133,6 +134,7 @@ export default {
     "openInBrowser": "浏览器打开",
     "downloadFile": "下载",
     "copy": "复制",
+    "open": "打开",
     "loadError": "加载错误",
     "cannotLoadNoteContent": "无法加载笔记内容。",
     "retry": "重试",
@@ -142,5 +144,5 @@ export default {
     "startDownload": "开始下载: {filename}",
     "downloadFailedResponse": "下载失败: 响应格式错误",
     "downloadFileFailed": "下载文件失败:",
-    "downloadFileFailedRetry": "下载文件失败，请稍后重试",
+    "downloadFileFailedRetry": "下载文件失败，请稍后重试"
 }

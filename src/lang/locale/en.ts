@@ -44,6 +44,7 @@ export default {
   'updateIndex': 'Update index',
   'regenerate': 'Regenerate',
   'general': 'General',
+  "sidebar": "Sidebar",
   //
   'note': 'Note',
   'web': 'Web',
@@ -52,8 +53,8 @@ export default {
   'chat': 'Chat',
   'file': 'File',
   //
-  'etype': 'type',
-  'range': 'range',
+  'etype': 'Type',
+  'range': 'Range',
   'total': 'Total',
   'embeddingFailed': 'Embedding failed',
   'item_count_max': 'Item count max',
@@ -132,6 +133,7 @@ export default {
   "openInBrowser": "Open in browser",
   "downloadFile": "Download",
   "copy": "Copy",
+  "open": "Open",
   "loadError": "Load error",
   "cannotLoadNoteContent": "Cannot load note content.",
   "retry": "Retry",
