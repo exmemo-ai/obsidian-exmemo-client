@@ -165,7 +165,7 @@ export class Sync {
             }
         }
         
-        useAsync = true; // for test, later...
+        //useAsync = true; // for test, later...
         this.updateProgressNotice(0, uploadList.length, useAsync ? t('asyncMode') : t('syncMode'));
 
         if (useAsync) {
