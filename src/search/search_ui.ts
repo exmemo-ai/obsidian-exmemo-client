@@ -136,6 +136,7 @@ export class SearchUI {
                 caseSensitiveButtonEl.addClass('case-sensitive-inactive');
                 caseSensitiveButtonEl.removeClass('case-sensitive-active');
             }
+            this.executeSearch();
         });
         
         this.searchBtnControlsEl = searchRowEl.createEl('button', {
@@ -169,6 +170,10 @@ export class SearchUI {
 
         this.populateFolderSelect();
 
+        this.folderSelectEl.addEventListener('change', () => {
+            this.executeSearch();
+        });
+
         this.typeContainer = this.advancedSearchEl.createEl('div', { cls: 'type-container' });
         const typeLabel = this.typeContainer.createEl('label', { cls: 'search-label' });
         typeLabel.textContent = t('etype') + ":";
@@ -186,6 +191,7 @@ export class SearchUI {
         this.typeSelectEl.addEventListener('change', () => {
             this.plugin.settings.lastSearchType = this.typeSelectEl.value;
             this.plugin.saveSettings();
+            this.executeSearch();
         });
 
         const dateRangeContainer = this.advancedSearchEl.createEl('div', { cls: 'date-range-container' });
@@ -203,6 +209,14 @@ export class SearchUI {
         this.dateEndEl = datesWrapper.createEl('input', { cls: 'date-input-ex' });
         this.dateEndEl.type = 'date';
 
+        this.dateStartEl.addEventListener('change', () => {
+            this.executeSearch();
+        });
+
+        this.dateEndEl.addEventListener('change', () => {
+            this.executeSearch();
+        });
+
         // add search method
         const searchMethodContainer = this.advancedSearchEl.createEl('div', { cls: 'search-method-container' });
         const searchMethodLabel = searchMethodContainer.createEl('label', { cls: 'search-label' });
@@ -212,6 +226,8 @@ export class SearchUI {
         
         const searchMethods = [
             { value: 'keywordOnly', key: 'keywordOnly' },
+            { value: 'fileSearch', key: 'fileSearch' },
+            { value: 'tagSearch', key: 'tagSearch' },
             { value: 'fuzzySearch', key: 'fuzzySearch' },
             { value: 'embeddingSearch', key: 'embeddingSearch' }
         ];
@@ -226,6 +242,7 @@ export class SearchUI {
         this.searchMethodSelectEl.addEventListener('change', () => {
             this.plugin.settings.lastSearchMethod = this.searchMethodSelectEl.value;
             this.plugin.saveSettings();
+            this.executeSearch();
         });
 
         this.advancedSearchVisible = !!this.plugin.settings.advancedSearchVisible;
@@ -262,8 +279,8 @@ export class SearchUI {
         
         if (this.searchMethodSelectEl) {
             const options = this.searchMethodSelectEl.options;
-            if (options.length >= 3) {
-                const embeddingOption = options[2] as HTMLOptionElement;
+            if (options.length >= 5) {
+                const embeddingOption = options[4] as HTMLOptionElement;
                 embeddingOption.disabled = !this.isRemoteSearch;
                 
                 if (!this.isRemoteSearch && this.searchMethodSelectEl.value === 'embeddingSearch') {
@@ -479,7 +496,8 @@ export class SearchUI {
             return;
         } 
         if (result.idx && (result.etype === 'record' || result.etype === 'chat' || result.etype === 'file')) {
-            new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+            const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+            new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value, searchMethod).open();
             return;
         }        
         if (result.etype === 'note' && result.addr) {
@@ -491,7 +509,8 @@ export class SearchUI {
                 if (current_vault === vault_name) {
                     addr = path.slice(1).join('/');
                 } else {
-                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+                    const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value, searchMethod).open();
                     return;
                 }
             } else {
@@ -499,9 +518,11 @@ export class SearchUI {
             }
             if (addr) {
                 if (this.plugin.settings.searchOpenInModal) {
-                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value).open();
+                    const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+                    new RemoteNoteViewerModal(this.app, this.plugin, result, this.keywordInputEl.value, searchMethod).open();
                 } else {
-                    await openNote(this.app, addr, this.keywordInputEl.value, this.caseSensitiveChecked);
+                    const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+                    await openNote(this.app, addr, this.keywordInputEl.value, this.caseSensitiveChecked, searchMethod);
                 }
             }
         }
@@ -573,7 +594,8 @@ export class SearchUI {
         let searchTypeText = '';
 
         if (!this.isRemoteSearch && searchKeyword) {
-            const parsedInput = parseSearchInput(searchKeyword);
+            const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+            const parsedInput = parseSearchInput(searchKeyword, searchMethod);
             const searchType = parsedInput.searchType;
             
             if (searchType === 'tag') {
@@ -630,7 +652,8 @@ export class SearchUI {
         let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
         
         if (!!keyword) {
-            const parsedInput = parseSearchInput(keyword);
+            const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+            const parsedInput = parseSearchInput(keyword, searchMethod);
             keywordArray = parsedInput.keywordArray;
             searchType = parsedInput.searchType;
         }
@@ -648,19 +671,28 @@ export class SearchUI {
             }))
         };
         
+        let searchQuery = this.keywordInputEl.value;
+        const searchMethod = this.searchMethodSelectEl ? this.searchMethodSelectEl.value : 'keywordOnly';
+        
+        if (searchMethod === 'fileSearch' && !searchQuery.startsWith('file:')) {
+            searchQuery = 'file:' + searchQuery;
+        } else if (searchMethod === 'tagSearch' && !searchQuery.startsWith('tag:')) {
+            searchQuery = 'tag:' + searchQuery;
+        }
+        
         const leafData = {
             dom: {
                 vChildren: vChildren
             },
             searchQuery: {
-                query: this.keywordInputEl.value
+                query: searchQuery
             },
             view: { // for my plugin
                 searchResults: results,
-                searchQuery: this.keywordInputEl.value
+                searchQuery: searchQuery
             },
             getQuery: () => {
-                return this.keywordInputEl.value;
+                return searchQuery;
             }
         };
 

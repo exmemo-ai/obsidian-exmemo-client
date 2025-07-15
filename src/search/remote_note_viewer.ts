@@ -21,8 +21,9 @@ export class RemoteNoteViewerModal extends Modal {
     private nextKeywordBtn: HTMLButtonElement;
     private isRemote: boolean = true;
     private localFile: any = null;
+    private searchMethod: string = 'keywordOnly';
 
-    constructor(app: App, plugin: any, item: any, keyword: string) {
+    constructor(app: App, plugin: any, item: any, keyword: string, searchMethod: string) {
         super(app);
         this.plugin = plugin;
         if (item && item.idx) 
@@ -34,6 +35,7 @@ export class RemoteNoteViewerModal extends Modal {
         else
             this.etype = null;
         this.keyword = keyword;
+        this.searchMethod = searchMethod || 'keywordOnly';
         
         if (item && item.isRemote !== undefined) {
             this.isRemote = item.isRemote;
@@ -514,7 +516,7 @@ export class RemoteNoteViewerModal extends Modal {
 
         try {
             this.close();
-            await openNote(this.app, this.localFile.path, this.keyword, false);
+            await openNote(this.app, this.localFile.path, this.keyword, false, this.searchMethod);
         } catch (error) {
             console.error('Failed to open local file:', error);
         }
@@ -543,7 +545,7 @@ export class RemoteNoteViewerModal extends Modal {
             const addr = path.slice(1).join('/'); // Remove vault name from path
             
             this.close();
-            await openNote(this.app, addr, this.keyword, false);            
+            await openNote(this.app, addr, this.keyword, false, this.searchMethod);            
         } catch (error) {
             console.error('Failed to open remote file in current vault:', error);
         }

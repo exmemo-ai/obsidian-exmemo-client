@@ -103,7 +103,7 @@ export async function searchLocalData(
     const enableFuzzySearch = searchMethod === 'fuzzySearch';
 
     // Parse search input
-    const parsedInput = parseSearchInput(keyword);
+    const parsedInput = parseSearchInput(keyword, searchMethod);
     const { searchType, searchValue, keywordArray } = parsedInput;
 
     if (keywordArray.length === 0) {

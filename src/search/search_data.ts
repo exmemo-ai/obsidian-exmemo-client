@@ -18,14 +18,15 @@ export interface ParsedSearchInput {
     keywordArray: string[];
 }
 
-export function parseSearchInput(keyword: string): ParsedSearchInput {
+export function parseSearchInput(keyword: string, searchMethod: string): ParsedSearchInput {
     let searchType: 'tag' | 'file' | 'keyword' = 'keyword';
     let searchValue = keyword;
     let keywordArray: string[] = [];
 
-    if (keyword.startsWith('tag:')) {
+    // Check searchMethod first, then fallback to keyword prefix
+    if (searchMethod === 'tagSearch' || keyword.startsWith('tag:')) {
         searchType = 'tag';
-        searchValue = keyword.substring(4).trim();
+        searchValue = keyword.startsWith('tag:') ? keyword.substring(4).trim() : keyword;
         
         const tagTerms = searchValue.split(/\s+/).filter(term => term.length > 0);
         for (const term of tagTerms) {
@@ -37,9 +38,9 @@ export function parseSearchInput(keyword: string): ParsedSearchInput {
             const formattedTag = tagValue.startsWith('#') ? tagValue : '#' + tagValue;
             keywordArray.push(formattedTag);
         }
-    } else if (keyword.startsWith('file:')) {
+    } else if (searchMethod === 'fileSearch' || keyword.startsWith('file:')) {
         searchType = 'file';
-        searchValue = keyword.substring(5).trim();
+        searchValue = keyword.startsWith('file:') ? keyword.substring(5).trim() : keyword;
         keywordArray = [searchValue];
     } else {
         searchType = 'keyword';
@@ -170,12 +171,12 @@ export function extractSnippet(content: string, keywords: string[], caseSensitiv
 }
 
 export async function openNote(app : App, addr: string, keyword: string,  
-            caseSensitive?: boolean) {
+            caseSensitive: boolean, searchMethod: string) {
     await app.workspace.openLinkText(addr, '', false);
     await new Promise(resolve => setTimeout(resolve, 300));
 
     const searchValue = keyword; //this.keywordInputEl.value;
-    const parsedInput = parseSearchInput(searchValue);
+    const parsedInput = parseSearchInput(searchValue, searchMethod);
     const searchType = parsedInput.searchType;
     
     if (searchType === 'tag' || searchType === 'file') {
