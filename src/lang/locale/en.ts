@@ -112,7 +112,7 @@ export default {
   "searching": "Searching...",
   "searchError": "Search error",
   "searchMethod": "Method",
-  "keywordOnly": "Keyword only",
+  "keywordOnly": "Keyword search",
   "fuzzySearch": "Fuzzy search",
   "embeddingSearch": "Embedding search",
   "searchResultMenu": "Search result menu",

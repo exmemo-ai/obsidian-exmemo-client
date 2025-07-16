@@ -303,7 +303,7 @@ export class Sync {
             }
             
             const uploadedFiles: TFile[] = [];
-            //console.log('upload file return', data) // for test
+            console.log('upload file return', data) // for test
             if (data.list) {
                 for (const file of group) {
                     if (data.list.some((result: any) => result === file.path)) {
