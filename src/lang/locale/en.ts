@@ -2,7 +2,7 @@
 
 export default {
   "exmemoService": "ExMemo service",
-  "serverSettings": "ExMemo Server Settings",
+  "serverSettings": "ExMemo Server Settings (optional)",
   "serverAddress": "Server address",
   "serverAddressDesc": "ExMemo server address",
   "pleaseConfigureServer": "Please configure ExMemo server in settings first",

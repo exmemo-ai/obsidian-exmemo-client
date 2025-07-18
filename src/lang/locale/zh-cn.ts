@@ -2,7 +2,7 @@
 
 export default {
     "exmemoService": "ExMemo 服务",
-    "serverSettings": "ExMemo 服务器设置",
+    "serverSettings": "ExMemo 服务器设置（选填）",
     "serverAddress": "服务器地址",
     "serverAddressDesc": "ExMemo 服务器地址",
     "pleaseConfigureServer": "请先在设置界面中配置ExMemo服务器",
