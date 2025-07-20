@@ -101,7 +101,6 @@ export default {
   "tagSearch": "Tag search",
   "fileSearch": "File name search",
   "keywordSearch": "Keyword search",
-  "searchSyntaxTip": "Supports tag:tagname, file:filename",
   "searchUsageTitle": "Search Tips",
   "searchUsageTips": "Separate multiple keywords with spaces: <code>work plan</code><br>Use quotes to search for phrases: <code>\"git tag\"</code><br>Remote embedding search supports natural language questions",
   "clearInput": "Clear input",

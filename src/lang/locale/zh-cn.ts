@@ -102,7 +102,6 @@ export default {
     "tagSearch": "标签搜索",
     "fileSearch": "文件名搜索",
     "keywordSearch": "关键字搜索",
-    "searchSyntaxTip": "支持 tag:标签, file:文件名",
     "searchUsageTitle": "搜索提示",
     "searchUsageTips": "使用空格分隔多个关键字：<code>工作 计划</code><br>使用引号搜索带引号的短语：<code>\"git tag\"</code><br>远程对嵌入搜索时可直接提出问题，无需限制为关键词",
     "clearInput": "清除输入",

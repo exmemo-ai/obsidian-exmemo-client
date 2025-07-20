@@ -58,7 +58,7 @@ export class SearchUI {
         const inputWrapperEl = inputContainerEl.createEl('div', { cls: 'input-wrapper' });
 
         this.keywordInputEl = inputWrapperEl.createEl('input', {
-            attr: { placeholder: t('searchKeyword') + ' (' + t('searchSyntaxTip') + ')' },
+            attr: { placeholder: t('searchKeyword') },
             cls: 'search-input'
         });
         this.keywordInputEl.type = 'text';
