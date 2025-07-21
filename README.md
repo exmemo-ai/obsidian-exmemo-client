@@ -4,82 +4,87 @@ English | [中文简体](./README_cn.md)
 
 ![](./images/img1.png)
 
-ExMemo is a personal knowledge management project designed to centrally record and manage various types of information, including favorite texts, books, music, videos, web pages, work documents, as well as reflections and thoughts about life. By systematically integrating these elements, it aims to break through cognitive limitations and discover internal connections.
+ExMemo is a personal knowledge management system that helps users uniformly manage documents, web pages, quick notes, and various other information through AI technology for intelligent retrieval and correlation analysis.
 
 ![](./images/img2.png)
 
-The system consists of a database, backend, and multiple front-ends. Distributed storage and databases are used to store user files, text, and corresponding vector data. Data storage can be deployed locally to protect user privacy. The backend provides general interfaces for data creation, reading, updating, and deletion (CRUD) operations and is responsible for invoking large models and processing data. The system supports mainstream online large models like OpenAI, Gemini, Qwen as well as offline models like Ollama. Multiple front-ends are available in the form of web services, WeChat bots, Obsidian plugins, and browser extensions for users to upload and download data.
+The system adopts a distributed architecture and supports local deployment to protect privacy. The backend integrates mainstream large models such as OpenAI, Gemini, Qwen, and Ollama offline models, providing various frontend interfaces including web services, WeChat bots, Obsidian plugins, and browser extensions.
 
-`obsidian-exmemo-client` is a client of ExMemo designed as an Obsidian plugin for synchronization and retrieval.
+`obsidian-exmemo-client` is an Obsidian plugin for ExMemo, providing note synchronization and intelligent retrieval features.
 
 ## 2 Main Features
 
-* Use ExMemo to sync Obsidian notes across different devices and store them on the backend.
-* Retrieve user data synced to ExMemo from various terminals.
-* Integrate content such as web pages and quick notes from ExMemo into Obsidian notes.
+### 2.1 Note Synchronization
+* Sync local Obsidian notes to ExMemo server for multi-device data consistency
+* Support single file or batch file upload and download
 
-## 3 Instructions
+### 2.2 Intelligent Search
+* **Local Search**: Quickly search local Obsidian notes in the sidebar
+* **Remote Search**: Search notes, web bookmarks, quick notes, and other content on ExMemo server
+* **Preview Feature**: Support remote file preview to view content before insertion
 
-### 3.1 Installing the ExMemo Server
+### 2.3 Content Integration
+* Integrate various data from ExMemo (web pages, quick notes, notes from other terminals) into current Obsidian notes
+* Support cross-platform content aggregation and knowledge correlation
 
-Installation instructions can be found at: https://github.com/exmemo-ai/exmemo
+## 3 Installation
 
-### 3.2 Installing obsidian-exmemo-client
+### 3.1 Install ExMemo Server
 
-#### 3.2.1 Method 1: Install from Community Plugin Market
+Installation instructions: https://github.com/exmemo-ai/exmemo
 
-Search for the keyword "exmemo" in the community plugin market and install the plugin.
+### 3.2 Install obsidian-exmemo-client
 
-#### 3.2.2 Method 2: Download Source Code for Compilation Installation
-
-(Mainly used when modification of source code is needed)
-
-**Download Compilation**
-
-```bash
-cd /exports/exmemo/code
-git clone https://github.com/exmemo-ai/obsidian-exmemo-client.git
-docker run --name obdev --rm -v /exports:/exports -it node:18 sh
-cd /exports/exmemo/code/obsidian-exmemo-client
-npm install
-npm run build # build to main.js
-```
-
-You can also download the latest version of the plugin directly from the Release page on GitHub.
-
-**Installation**
-
-* Copy the compiled `main.js`, `manifest.json`, and `styles.css` to the.obsidian/plugins/obsidian-exmemo-client/ directory of your Obsidian vault.
-* Open Obsidian, go to "Settings" -> "Third-party plugins"
-* Find "ExMemo" and click the enable button.
-
-### 3.3 Settings
-
-![](./images/img3.png)
-
-- Server address format: http://IP:PORT. Please set up the ExMemo backend service before use.
-- You need to register a user on the ExMemo frontend before using it for the first time.
-- Modify include/exclude directories or files, as well as set synchronization time as per prompts.
+Search for "exmemo" in the community plugin market and install the plugin, or download the latest version from GitHub Release page for manual installation.
 
 ## 4 Usage
 
-Press Ctrl+P to bring up the plugin, enter ExMemo in the search box, and select the desired ob plugin function.
+### 4.1 Settings
 
-### 4.1 Sync Notes
+![](./images/setting.png)
+
+- Server address format: http://IP:PORT, setup ExMemo backend service before use
+- Register a user on ExMemo frontend before first use
+
+### 4.2 Basic Operations
+
+Press Ctrl+P to bring up the plugin, enter ExMemo in the search box, and select the desired function.
+
+### 4.3 Sync Notes
 
 * Sync current note
 * Upload or download all notes to/from ExMemo server
 
-### 4.2 Search Data
+### 4.4 Search Data
 
-* By entering keywords, you can match notes, bookmarked web pages, or impromptu records and insert results into your current note.
-* Use spaces to separate multiple keywords if needed.
-* Matching priority: Title match > Content match > Fuzzy match.
-* You can filter search data by setting start and end times and number of entries.
+The plugin provides powerful search functionality, supporting unified search of local Obsidian notes and remote ExMemo data.
 
-### 4.3 Note
+![](./images/search.png)
 
-Before using "Sync All Files" for the first time, please back up your Obsidian data in case of unexpected situations.
+#### Search Types
+* **Keyword Search**: Enter single or multiple keywords (space-separated) for matching
+* **Filename Search**: Quickly locate target files by filename
+* **Tag Search**: Filter relevant content through tag labels
+* **Fuzzy Search**: Support fuzzy matching to improve search hit rate
+* **Vector Search** (Remote): Enter complete sentences for semantic search without keyword splitting
+
+#### Search Settings
+* **Case Sensitive**: Choose whether to distinguish case
+* **Time Range**: Set start and end range for file creation time
+* **Directory Management**: Specify target search directories and exclude directories
+* **Result Preview**: Remote search supports file preview to view content before insertion
+
+![](./images/viewer.png)
+
+#### Search Priority
+Search results are sorted by the following priority:
+* **Title Match** > **Content Match** > **Fuzzy Match**
+* **Keyword Frequency**: Higher frequency results rank higher
+* **Time Priority**: Sort by file time
+
+### 4.5 Note
+
+Before using "Sync All Files" for the first time, please back up your Obsidian data to prevent unexpected situations.
 
 ## 5 License
 

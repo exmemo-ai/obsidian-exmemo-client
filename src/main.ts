@@ -1,9 +1,11 @@
-import { Editor, MarkdownView, Plugin, requestUrl, RequestUrlResponse } from 'obsidian';
+import { Editor, MarkdownView, Plugin, WorkspaceLeaf, Menu } from 'obsidian';
 import { DEFAULT_SETTINGS, ExMemoSettings, ExMemoSettingTab } from 'src/settings';
 import { Sync } from 'src/sync';
-import { SearchModal } from 'src/search';
+import { SearchModal } from 'src/search/search_ui';
 import { ExMemoNotice } from 'src/notice';
 import { t } from "src/lang/helpers"
+import { LeftSearchView, LEFT_SEARCH_VIEW_TYPE } from 'src/search/search_ui';
+import { registerCustomIcons } from 'src/custom_icons';
 
 export default class ExMemoPlugin extends Plugin {
 	settings: ExMemoSettings;
@@ -13,16 +15,42 @@ export default class ExMemoPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		registerCustomIcons();
 		this.notice = new ExMemoNotice();
 		this.sync = new Sync(this, this.app, this.settings);
 
+		//this.debugSearchLeaf(); // for debug
+
 		this.addCommand({
-			id: 'search',
+			id: 'search_local',
 			name: t('search'),
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				new SearchModal(this.app, this).open();
 			}
-		});
+		});		
+        this.addCommand({
+            id: 'search_local_sidebar',
+            name: t('search') + ' (' + t('sidebar') + ')',
+            callback: () => {
+                const leaves = this.app.workspace.getLeavesOfType(LEFT_SEARCH_VIEW_TYPE);
+                if (leaves.length > 0) {
+                    this.app.workspace.revealLeaf(leaves[0]);
+                    return;
+                }
+				const leaf = this.app.workspace.getLeftLeaf(false);
+				if (leaf) {
+					leaf.setViewState({
+						type: LEFT_SEARCH_VIEW_TYPE,
+						active: true
+					});
+					this.app.workspace.revealLeaf(leaf);
+				}
+            }
+        });
+        this.registerView(
+            LEFT_SEARCH_VIEW_TYPE,
+            (leaf: WorkspaceLeaf) => new LeftSearchView(leaf, this.app, this)
+        );
 		this.addCommand({
 			id: 'upload',
 			name: t('syncCurrentFile'),
@@ -56,6 +84,7 @@ export default class ExMemoPlugin extends Plugin {
 			window.clearInterval(this.syncIntervalId);
 			this.syncIntervalId = 0;
 		}
+        this.app.workspace.getLeavesOfType(LEFT_SEARCH_VIEW_TYPE).forEach(leaf => leaf.detach());
 	}
 
 	async loadSettings() {
@@ -64,57 +93,6 @@ export default class ExMemoPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-
-	async getMyToken() {
-		if (this.settings.url === '' || this.settings.myUsername === '' || this.settings.myPassword === '') {
-			this.showNotice('temp', t('login_info_missing'), { timeout: 3000 });
-			return false
-		}
-		this.showNotice('auth', t('login'));
-		await new Promise(resolve => setTimeout(resolve, 3000));
-		const url = new URL(this.settings.url + '/api/auth/login/');
-		const requestOptions = {
-			url: url.toString(),
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				username: this.settings.myUsername,
-				password: this.settings.myPassword
-			})
-		};
-		try {
-			const response: RequestUrlResponse = await requestUrl(requestOptions);
-			if (response.status === 200) {
-				const data = await response.json;
-				this.settings.myToken = data.token;
-				this.saveSettings();
-				this.hideNotice('auth');
-				return true
-			}
-		} catch (error) {
-			console.error(error);
-		}
-		this.hideNotice('auth');
-		this.showNotice('temp', t('loginFailed'), { timeout: 3000 });
-		return false
-	}
-
-	parseError(err: any, show_notice: boolean = true) {
-		if (err.status === 401) {
-			this.settings.myToken = '';
-			this.saveSettings();
-			if (show_notice) {
-				let showinfo = t('loginExpired') + ': ' + err.status;
-				this.showNotice('error', showinfo, { timeout: 3000 });
-			}
-		} else {
-			console.error(err);
-			if (show_notice) {
-				let showinfo = t('syncFailed') + ': ' + err.status;
-				this.showNotice('error', showinfo, { timeout: 3000 });
-			}
-		}
 	}
 
 	resetSyncInterval() {
@@ -128,4 +106,38 @@ export default class ExMemoPlugin extends Plugin {
 					interval * 60 * 1000);
 		}
 	}
+
+    // 添加调试方法
+    private debugSearchLeaf() {
+        this.registerEvent(
+            this.app.workspace.on('search:results-menu' as any, (menu: Menu, leaf: any) => {
+                console.log('=== Search Leaf Debug Info ===');
+                console.log('Search leaf structure:', leaf);
+                console.log('Leaf keys:', Object.keys(leaf));
+                
+                if (leaf.dom) {
+                    console.log('DOM structure:', leaf.dom);
+                    if (leaf.dom.vChildren) {
+                        console.log('vChildren:', leaf.dom.vChildren);
+                    }
+                }
+                
+                if (leaf.view) {
+                    console.log('View structure:', leaf.view);
+                    console.log('View keys:', Object.keys(leaf.view));
+                }
+                
+                if (leaf.searchQuery) {
+                    console.log('Search query:', leaf.searchQuery);
+                }
+                
+                // 检查是否有 getQuery 方法
+                if (typeof leaf.getQuery === 'function') {
+                    console.log('getQuery() result:', leaf.getQuery());
+                }
+                
+                console.log('=== End Debug Info ===');
+            })
+        );
+    }
 }
