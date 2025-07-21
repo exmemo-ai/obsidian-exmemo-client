@@ -72,14 +72,28 @@ async function ensureToken(plugin: any): Promise<boolean> {
             plugin.saveSettings();
             plugin.hideNotice('auth');
             return true;
+        } else {
+            plugin.hideNotice('auth');
+            if (response.status === 400 || response.status === 401) {
+                plugin.showNotice('temp', t('auth_invalid_credentials'), { timeout: 5000 });
+            } else if (response.status >= 500) {
+                plugin.showNotice('temp', t('auth_server_error'), { timeout: 5000 });
+            } else {
+                plugin.showNotice('temp', `${t('loginFailed')} (${response.status})`, { timeout: 5000 });
+            }
+            return false;
         }
     } catch (error) {
-        console.error(error);
+        console.error('Login error:', error);
+        plugin.hideNotice('auth');
+        
+        if (error.message && (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('connection'))) {
+            plugin.showNotice('temp', t('auth_network_error'), { timeout: 5000 });
+        } else {
+            plugin.showNotice('temp', t('loginFailed'), { timeout: 5000 });
+        }
+        return false;
     }
-    
-    plugin.hideNotice('auth');
-    plugin.showNotice('temp', t('loginFailed'), { timeout: 3000 });
-    return false;
 }
 
 export async function requestWithToken(plugin: any, requestOptions: any, autoLogin: boolean = true, notice: boolean = true): Promise<any> {
