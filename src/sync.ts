@@ -170,7 +170,7 @@ export class Sync {
 
         if (useAsync) {
             // asynchronous upload: all files at once
-            return await this.uploadFilesAsync(uploadList, fileSizes, url);
+            return await this.uploadFilesAsync(uploadList, url);
         } else {
             // const groups = this.groupFilesBySize(uploadList, fileSizes, MAX_SYNC_SIZE);
             const groups = this.groupFilesByCount(uploadList, 5);
@@ -247,20 +247,34 @@ export class Sync {
         return groups;
     }
 
-    private async uploadFilesAsync(uploadList: TFile[], fileSizes: Map<TFile, number>, url: URL): Promise<[boolean, TFile[]]> {
-        const [success, result] = await this.uploadFileGroup(uploadList, url, true);
+    private async uploadFilesAsync(uploadList: TFile[], url: URL): Promise<[boolean, TFile[]]> {
+        const groups = this.groupFilesByCount(uploadList, 50);
+        let allSuccessfulFiles: TFile[] = [];
         
-        if (success) {
-            if (typeof result === 'string') {
-                return await this.pollUploadProgress(result, uploadList);
-            } else if (Array.isArray(result)) {
-                console.log(t('serverNotSupportAsync'));
-                this.updateProgressNotice(uploadList.length, uploadList.length, t('syncMode'));
-                return [true, result];
+        for (let i = 0; i < groups.length; i++) {
+            const group = groups[i];
+            console.log(`upload ${i + 1}/${groups.length} group (${group.length} files)`);
+
+            const [success, result] = await this.uploadFileGroup(group, url, true);
+            
+            if (success) {
+                if (typeof result === 'string') {
+                    const [groupSuccess, successfulFiles] = await this.pollUploadProgress(result, group);
+                    if (groupSuccess) {
+                        allSuccessfulFiles.push(...successfulFiles);
+                    } else {
+                        return [false, allSuccessfulFiles];
+                    }
+                } else if (Array.isArray(result)) {
+                    console.log(t('serverNotSupportAsync'));
+                    allSuccessfulFiles.push(...result);
+                }
+            } else {
+                return [false, allSuccessfulFiles];
             }
         }
         
-        return [false, []];
+        return [true, allSuccessfulFiles];
     }
 
     private async uploadFileGroup(group: TFile[], url: URL, isAsync: boolean): Promise<[boolean, TFile[] | string]> {
@@ -310,6 +324,14 @@ export class Sync {
                         uploadedFiles.push(file);
                     }
                 }
+            }
+            if (data.status == 'failed') {
+                if (data.info) {
+                    this.plugin.showNotice('error', `${t('uploadFailed')}: ${data.info}`, { timeout: 5000 });
+                } else {
+                    this.plugin.showNotice('error', t('uploadFailed'), { timeout: 3000 });
+                }
+                return [false, []];
             }
             
             if (data.emb_status && data.emb_status === 'failed') {
@@ -561,6 +583,10 @@ export class Sync {
                 return;
             }
             this.plugin.showNotice('temp', showinfo, { timeout: 3000 });
+            
+            let successfulUploadPaths: string[] = [];
+            let successfulDownloadPaths: string[] = [];
+            
             if (upload_list.length > 0) {
                 let updateFiles: TFile[] = [];
                 for (const dic of upload_list) {
@@ -571,11 +597,15 @@ export class Sync {
                         console.warn("can't found" + dic['addr']);
                     }
                 }
-                await this.uploadFiles(updateFiles);
+                const [uploadSuccess, uploadedFiles] = await this.uploadFiles(updateFiles);
+                opt_success = opt_success && uploadSuccess;
+                successfulUploadPaths = uploadedFiles.map(file => file.path);
             }
             
             if (download_list.length > 0) {
-                opt_success = await this.downloadFiles(download_list);
+                const downloadResult = await this.downloadFiles(download_list);
+                opt_success = opt_success && downloadResult.success;
+                successfulDownloadPaths = downloadResult.successfulPaths;
             }
             
             if (data.remove_list && data.remove_list.length > 0) {
@@ -585,9 +615,15 @@ export class Sync {
             if (conflict_list.length > 0 && !this.interrupt) {
                 const conflict_result = await this.showConflict(conflict_list);
                 opt_success = opt_success && conflict_result.success;
-                this.finishSync(opt_success, upload_list, download_list, conflict_list, conflict_result.result);
+                const allSuccessfulPaths = [
+                    ...successfulUploadPaths, 
+                    ...successfulDownloadPaths, 
+                    ...(conflict_result.successfulPaths || [])
+                ];
+                this.finishSync([...new Set(allSuccessfulPaths)]);
             } else {
-                this.finishSync(opt_success, upload_list, download_list);
+                const allSuccessfulPaths = [...successfulUploadPaths, ...successfulDownloadPaths];
+                this.finishSync([...new Set(allSuccessfulPaths)]);
             }
         } catch (err) {
             const errorMsg = err.status || err.message || 'Unknown error';
@@ -597,8 +633,8 @@ export class Sync {
         }
     }
 
-    showConflict(conflict_list: []): Promise<{result: string, success: boolean}> {
-        return new Promise<{result: string, success: boolean}>((resolve) => {
+    showConflict(conflict_list: []): Promise<{result: string, success: boolean, successfulPaths?: string[]}> {
+        return new Promise<{result: string, success: boolean, successfulPaths?: string[]}>((resolve) => {
             if (this.currentConflictModal) {
                 this.currentConflictModal.close();
                 this.currentConflictModal = null;
@@ -606,6 +642,8 @@ export class Sync {
                         
             const conflictModal = new ConflictModal(this.app, conflict_list, async (result) => {
                 let opt_success = true;
+                let successfulPaths: string[] = [];
+                
                 if (result === 'upload') {
                     let updateFiles: TFile[] = [];
                     for (const dic of conflict_list) {
@@ -617,14 +655,16 @@ export class Sync {
                     if (updateFiles.length > 0) {
                         const [uploadSuccess, uploadedFiles] = await this.uploadFiles(updateFiles);
                         opt_success = uploadSuccess;
+                        successfulPaths = uploadedFiles.map(file => file.path);
                     }
                 } else if (result === 'download') {
                     const downloadResult = await this.downloadFiles(conflict_list);
-                    opt_success = downloadResult;
+                    opt_success = downloadResult.success;
+                    successfulPaths = downloadResult.successfulPaths;
                 }
                 
                 this.currentConflictModal = null;
-                resolve({result, success: opt_success});
+                resolve({result, success: opt_success, successfulPaths});
             });
             
             this.currentConflictModal = conflictModal;
@@ -632,45 +672,15 @@ export class Sync {
         });
     }
 
-    
-    async finishSync(opt_success: boolean, upload_list: any[], download_list: any[], conflict_list?: any[], conflict_result?: string) {
-        // wait 1 second to show
+    async finishSync(successfulPaths: string[]) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-        this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
-        await this.localInfo.update();
-        
-        // lastSyncTime only affects file only in cloud
-        // if file only in cloud, and lastSyncTime is new, remove cloud file
-        // if download not success, maybe accidentally remove cloud file
-        if (opt_success && false == this.interrupt) {
+        await this.localInfo.update();        
+        if (successfulPaths.length > 0 && false == this.interrupt) {
+            this.plugin.showNotice('sync', t('syncFinished'), { timeout: 3000 });
             const newSyncTime = new Date().getTime() + 5000; // 5 sec delay
             this.settings.lastSyncTime = newSyncTime;
-            this.plugin.saveSettings();            
-            const syncedPaths: string[] = [];
-            
-            upload_list.forEach(item => {
-                if (item.addr && !syncedPaths.includes(item.addr)) {
-                    syncedPaths.push(item.addr);
-                }
-            });
-            
-            download_list.forEach(item => {
-                if (item.addr && !syncedPaths.includes(item.addr)) {
-                    syncedPaths.push(item.addr);
-                }
-            });
-            
-            if (conflict_list && conflict_result && conflict_result !== 'skip') {
-                conflict_list.forEach(item => {
-                    if (item.addr && !syncedPaths.includes(item.addr)) {
-                        syncedPaths.push(item.addr);
-                    }
-                });
-            }
-            
-            if (syncedPaths.length > 0) {
-                this.localInfo.updateFilesSyncTime(syncedPaths, newSyncTime);
-            }
+            this.plugin.saveSettings();
+            this.localInfo.updateFilesSyncTime(successfulPaths, newSyncTime);
         }
     }
 
@@ -706,16 +716,21 @@ export class Sync {
         confirmModal.open();
     }
 
-    async downloadFiles(filelist: []) {
+    async downloadFiles(filelist: []): Promise<{success: boolean, successfulPaths: string[]}> {
         let count = 0
         let ret = true;
+        const successfulPaths: string[] = [];
+        
         for (const dic of filelist) {
             if (this.interrupt) {
                 break;
             }
-            ret = await this.downloadFile(dic['addr'], dic['idx']);
-            if (!ret) {
+            const downloadResult = await this.downloadFile(dic['addr'], dic['idx']);
+            if (downloadResult) {
+                successfulPaths.push(dic['addr']);
+            } else {
                 this.plugin.showNotice('temp', t('downloadFailed'), { timeout: 3000 });
+                ret = false;
                 break;
             }
             count += 1;
@@ -728,7 +743,7 @@ export class Sync {
         this.plugin.showNotice('sync',
             t('download') + ': ' + count + '/' + filelist.length,
             { 'button': this.interruptButton });
-        return ret;
+        return {success: ret, successfulPaths};
     }
 
     async downloadFile(filename: string, idx: string) {
