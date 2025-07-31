@@ -1,61 +1,47 @@
 English | [中文简体](./README_cn.md)
 
-## 1 Introduction
+## 1 Main Features
 
-![](./images/img1.png)
+### 1.1 Intelligent Search
 
-ExMemo is a personal knowledge management system that helps users uniformly manage documents, web pages, quick notes, and various other information through AI technology for intelligent retrieval and correlation analysis.
-
-![](./images/img2.png)
-
-The system adopts a distributed architecture and supports local deployment to protect privacy. The backend integrates mainstream large models such as OpenAI, Gemini, Qwen, and Ollama offline models, providing various frontend interfaces including web services, WeChat bots, Obsidian plugins, and browser extensions.
-
-`obsidian-exmemo-client` is an Obsidian plugin for ExMemo, providing note synchronization and intelligent retrieval features.
-
-## 2 Main Features
-
-### 2.1 Note Synchronization
-* Sync local Obsidian notes to ExMemo server for multi-device data consistency
-* Support single file or batch file upload and download
-
-### 2.2 Intelligent Search
 * **Local Search**: Quickly search local Obsidian notes in the sidebar
 * **Remote Search**: Search notes, web bookmarks, quick notes, and other content on ExMemo server
 * **Preview Feature**: Support remote file preview to view content before insertion
 
-### 2.3 Content Integration
-* Integrate various data from ExMemo (web pages, quick notes, notes from other terminals) into current Obsidian notes
-* Support cross-platform content aggregation and knowledge correlation
+### 1.2 Note Synchronization
 
-## 3 Installation
+* Sync local Obsidian notes to ExMemo server for multi-device data consistency
+* Support single file or batch file upload and download
 
-### 3.1 Install ExMemo Server
+## 2 Installation
 
-Installation instructions: https://github.com/exmemo-ai/exmemo
-
-### 3.2 Install obsidian-exmemo-client
+### 2.1 Install obsidian-exmemo-client
 
 Search for "exmemo" in the community plugin market and install the plugin, or download the latest version from GitHub Release page for manual installation.
 
-## 4 Usage
+### 2.2 Install ExMemo Server
 
-### 4.1 Settings
+(Not required if only using local search functionality)
+
+Installation instructions: https://github.com/exmemo-ai/exmemo
+
+## 3 Usage
+
+### 3.1 Settings
+
+(Not required if only using local search functionality)
 
 ![](./images/setting.png)
 
 - Server address format: http://IP:PORT, setup ExMemo backend service before use
 - Register a user on ExMemo frontend before first use
 
-### 4.2 Basic Operations
+### 3.2 Basic Operations
 
-Press Ctrl+P to bring up the plugin, enter ExMemo in the search box, and select the desired function.
+- Press Ctrl+P to bring up the plugin, enter ExMemo in the search box, and select the desired function.
+- It's recommended to open the search interface in the left sidebar, corresponding to the "Search (Sidebar)" option.
 
-### 4.3 Sync Notes
-
-* Sync current note
-* Upload or download all notes to/from ExMemo server
-
-### 4.4 Search Data
+### 3.3 Search Data
 
 The plugin provides powerful search functionality, supporting unified search of local Obsidian notes and remote ExMemo data.
 
@@ -82,9 +68,26 @@ Search results are sorted by the following priority:
 * **Keyword Frequency**: Higher frequency results rank higher
 * **Time Priority**: Sort by file time
 
-### 4.5 Note
+### 3.4 Sync Notes
+
+* Sync current note
+* Upload or download all notes to/from ExMemo server
+
+### 3.5 Attention
 
 Before using "Sync All Files" for the first time, please back up your Obsidian data to prevent unexpected situations.
+
+## 4 Background
+
+![](./images/img1.png)
+
+ExMemo is a personal knowledge management system that helps users uniformly manage documents, web pages, quick notes, and various other information through AI technology for intelligent retrieval and correlation analysis.
+
+![](./images/img2.png)
+
+The system adopts a distributed architecture and supports local deployment to protect privacy. The backend integrates mainstream large models such as OpenAI, Gemini, Qwen, and Ollama offline models, providing various frontend interfaces including web services, WeChat bots, Obsidian plugins, and browser extensions.
+
+`obsidian-exmemo-client` is an Obsidian plugin for ExMemo, providing note synchronization and intelligent retrieval features.
 
 ## 5 License
 
