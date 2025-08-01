@@ -13,6 +13,10 @@ English | [中文简体](./README_cn.md)
 * Sync local Obsidian notes to ExMemo server for multi-device data consistency
 * Support single file or batch file upload and download
 
+### 1.3 Watch the video：
+
+[![Watch the video](./images/video.png)](https://youtu.be/AyskYAAmBxk)
+
 ## 2 Installation
 
 ### 2.1 Install obsidian-exmemo-client
